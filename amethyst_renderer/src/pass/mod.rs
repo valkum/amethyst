@@ -1,6 +1,7 @@
 //! Different kinds of render passes.
 //
 pub use self::{
+    // clipmap::*,
     debug_lines::*,
     flat::*,
     flat2d::*,
@@ -11,6 +12,7 @@ pub use self::{
     util::{get_camera, set_vertex_args},
 };
 
+// mod clipmap;
 mod debug_lines;
 mod flat;
 mod flat2d;

@@ -8,19 +8,23 @@ use amethyst_core::{
 
 use crate::{
     error::Result,
-    get_camera,
     pipe::{
         pass::{Pass, PassData},
         DepthMode, Effect, NewEffect,
     },
+    pass::{
+        shaded_util::{set_light_args, setup_light_buffers},
+        util::{get_camera, setup_textures, setup_vertex_args},
+    },
     set_vertex_args, ActiveCamera, Camera, Encoder, Factory, Mesh, PosTex, Rgba, Shape,
     VertexFormat,
+    vertex::Attributes,
 };
 
 use gfx::pso::buffer::ElemStride;
 use glsl_layout::{mat4, Uniform, vec4};
 
-use super::{FRAG_SRC, VERT_SRC};
+use super::{FRAG_SRC, VERT_SRC, ClipmapParams, PosXY};
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
@@ -37,10 +41,38 @@ pub struct DrawClipmap {
     mesh: Option<Mesh>,
 }
 
+enum TrimOrientation{
+    North,
+    East,
+    South,
+    West,
+
+}
+
 impl DrawClipmap {
     /// Create instance of `DrawClipmap` pass
     pub fn new() -> Self {
         DrawClipmap { mesh: None }
+    }
+    /// Returns mesh indices and fine-block-origin for given block id
+    /// TODO: Cache this somewhere
+    /// index buffer should be 16-bit for max caching
+    fn block(id: usize, size: usize) -> (Slice<Resources>, [f32; 2]) {
+        // 64
+        // let m = (size+1)/4;
+        // let offset = id - 1;
+        // let indices = Vec::with_capacity(64);
+        // for y in 0..size-1 {
+        //     for k in (y*size)..(y*size+2) {
+        //         indices.push(k+offset, k+1+offset, k+15+offset));
+        //         push(tri(k+1, k+15, k+16));
+        //     }
+        // }
+
+    }
+    fn ring_fix_up(orient: TrimOrientation, size: usize) {
+
+
     }
 }
 
@@ -94,12 +126,21 @@ impl Pass for DrawClipmap {
         );
         effect.update_global("size", Into::<i32>::into(clipmap_params.size));
 
+        // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
         effect.update_global("alpha_offset", Into::<[f32; 3]>::into(clipmap_params.alpha_offset));
         effect.update_global("one_over_width", Into::<[f32; 3]>::into(clipmap_params.one_over_width));
-        effect.update_global("fine_block_orig", Into::<[f32; 3]>::into(clipmap_params.fine_block_orig));
-        effect.update_global("z_scale_factor", Into::<[f32; 3]>::into(clipmap_params.z_scale_factor));
-        effect.update_global("z_tex_scale_factor", Into::<[f32; 3]>::into(clipmap_params.z_tex_scale_factor));
-        effect.update_global("scale_factor", Into::<[f32; 4]>::into(clipmap_params.scale_factor));
+
+        // fine_block_orig.xy: 1/(w, h) of texture
+        // fine_block_orig.zw: origin of block in texture
+        let 1_over_texture = 1/
+        let fine_block_orig = [1_over_texture, 1_over_texture, ];
+        effect.update_global("fine_block_orig", Into::<[f32; 3]>::into(fine_block_orig));
+        let scale_factor = [1; 4];
+        effect.update_global("scale_factor", Into::<[f32; 4]>::into(scale_factor));
+        let z_scale_factor = [1; 3];
+        effect.update_global("z_scale_factor", Into::<[f32; 3]>::into(z_scale_factor));
+        let z_tex_scale_factor = [1; 3];
+        effect.update_global("z_tex_scale_factor", Into::<[f32; 3]>::into(z_tex_scale_factor));
 
 
 

@@ -25,16 +25,15 @@ layout (std140) uniform DirectionalLights {
     DirectionalLight dlight[16];
 };
 
-uniform sampler2D normal;
-uniform sampler1D zBasedColor;
+uniform vec3 ambient_color;
+uniform vec3 camera_position;
+
+// uniform sampler2D normal_sampler;
+uniform sampler1D z_based_color;
 
 in VertexData {
     vec3 position;
-    vec3 normal;
-    vec3 tangent;
-    vec2 tex_coord;
-    vec4 color;
-    vec2 uv; // coordinates for normal-map lookup
+    vec2 tex_coord; // coordinates for normal-map lookup
     float z; // coordinates for elevation-map lookup
     float alpha; // transition blend
 } vertex;
@@ -46,12 +45,13 @@ out vec4 out_color;
 void main() {
     vec3 lighting = vec3(0.0);
 
-    vec4 normal_fc = texture(normal, uv);
+    // vec4 normal_fc = texture(normal_sampler, vertex.tex_coord);
 
-    // normal_fc.xy contains normal at current (fine) level 
-    // normal_fc.zw contains normal at coarser level
-    // blend normals using alpha computed in vertex shader
-    vec3 normal = float3((1 - alpha) * normal_fc.xy + alpha * (normal_fc.zw), 1);
+    // // normal_fc.xy contains normal at current (fine) level 
+    // // normal_fc.zw contains normal at coarser level
+    // // blend normals using alpha computed in vertex shader
+    // vec3 normal = vec3((1 - vertex.alpha) * normal_fc.xy + vertex.alpha * (normal_fc.zw), 1);
+    vec3 normal = vec3(0, 1, 0);
 
     // unpack coordinates from [0, 1] to [-1, +1] range, and renormalize
     normal = normalize(normal * 2 - 1);
@@ -75,11 +75,11 @@ void main() {
         vec3 diffuse = diff * dlight[i].color;
         lighting += diffuse;
     }
-    ambient_color = vec3(0.5, 0.5, 0.5);
 
     lighting += ambient_color;
+    lighting += vec3(1.0, 0.1, 0.1) * vertex.alpha;
 
 
     // assign terrain color based on its elevation 
-    out_color = vec4(lighting, 1.0) * texture(zBasedColor, z);
+    out_color = vec4(lighting, 1.0) * texture(z_based_color, vertex.z);
 }

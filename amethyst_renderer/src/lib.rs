@@ -82,7 +82,7 @@ pub use crate::{
     pass::{
         get_camera, set_vertex_args, DebugLinesParams, DrawDebugLines, DrawFlat, DrawFlat2D,
         DrawFlatSeparate, DrawPbm, DrawPbmSeparate, DrawShaded, DrawShadedSeparate, DrawSkybox,
-        SkyboxColor,
+        SkyboxColor, DrawClipmap, Clipmap, ActiveClipmap, ClipmapSystem
     },
     pipe::{
         ColorBuffer, Data, DepthBuffer, DepthMode, Effect, EffectBuilder, Init, Meta, NewEffect,

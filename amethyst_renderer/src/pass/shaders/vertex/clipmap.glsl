@@ -27,15 +27,18 @@ out VertexData {
     vec2 tex_coord; // coordinates for normal-map lookup
     float z; // coordinates for elevation-map lookup
     float alpha; // transition blend
+    vec4 test;
 } vertex;
 
 // Vertex shader for rendering the geometry clipmap
 void main() {
-    vec2 grid_pos = position.xy; //(fmod(gl_VertexID, size), floor(gl_VertexID/size)) 
+    // Paper suggests to use (fmod(gl_VertexID, size), floor(gl_VertexID/size))  and avoid the vertex buffer.
+    // For now we generate a block mesh with values of [-m/2; m/2]
+    vec2 grid_pos = position.xy; 
     // convert from grid xy to world xy coordinates
     // Scale_factor.xy: grid spacing of current level
     // Scale_factor.zw: origin of current block within world 
-    vec2 world_pos = grid_pos * scale_factor.xy + scale_factor.zw;
+    vec2 world_pos = (grid_pos + scale_factor.zw) * scale_factor.xy;
     // compute coordinates for vertex texture
     // Fine_block_orig.xy: 1/(w, h) of texture
     // Fine_block_orig.zw: origin of block in texture
@@ -47,19 +50,23 @@ void main() {
     // zf is elevation value in current (fine) level
     // zc is elevation value in coarser level
     float zf = floor(zf_zd.x);
-    float zd = fract(zf_zd.x) * 512 - 256; // (zd = zc - zf)
+    // float zd = fract(zf_zd.x) * 512 - 256; // (zd = zc - zf)
+    float zd = floor(zf_zd.y);
 
     // compute alpha (transition parameter) and blend elevation
-    vec2 alpha = clamp((abs(world_pos - camera_position.xy) - alpha_offset) * one_over_width, 0, 1);
+    // vec2 alpha = clamp((abs(world_pos - camera_position.xy) - alpha_offset) * one_over_width, 0, 1);
+    // Use grid_pos here to avoid dealing with different alpha_offsets for each level
+    vec2 alpha = clamp((abs(grid_pos + scale_factor.zw) - alpha_offset) * one_over_width, 0, 1);
     alpha.x = max(alpha.x, alpha.y); 
     float z = zf + alpha.x * zd;
     z = z * z_scale_factor;
 
-    vec4 vertex_position = model * vec4(world_pos.x, world_pos.y, 0.,  1.0);
+    vec4 vertex_position = model * vec4(world_pos.x, world_pos.y, alpha.x*10,  1.0);
     
     vertex.position = vertex_position.xyz;
     vertex.tex_coord = uv;
     vertex.z = z * z_tex_scale_factor; 
     vertex.alpha = alpha.x;
+    vertex.test = zf_zd;
     gl_Position = proj * view * vertex_position;
 }

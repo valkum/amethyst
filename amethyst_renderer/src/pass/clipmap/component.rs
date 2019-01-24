@@ -1,4 +1,4 @@
-use amethyst_assets::{Handle, PrefabData, PrefabError, Loader, AssetStorage};
+use amethyst_assets::{Handle, PrefabData, PrefabError, Loader, AssetStorage, ProgressCounter};
 use amethyst_core::{
     transform::GlobalTransform,
     specs::{
@@ -44,14 +44,17 @@ type ClipmapMeshHandle = Handle<Mesh>;
 #[prefab(Component)]
 // #[serde(default)]
 pub struct Clipmap{
-    block_mesh: Option<ClipmapMeshHandle>,
-    fixup_mesh: Option<ClipmapMeshHandle>,
-    trim_mesh: Option<[ClipmapMeshHandle; 4]>,
-    elevation: Option<Handle<Texture>>,
-    z_color: Option<Handle<Texture>>,
-    size: u32,
-    alpha_offset: [f32; 2],
-    one_over_width: [f32; 2],
+    pub initialized: bool,
+    pub block_mesh: Option<ClipmapMeshHandle>,
+    pub fixup_mesh: Option<ClipmapMeshHandle>,
+    pub trim_mesh: Option<[ClipmapMeshHandle; 4]>,
+    pub elevation: Option<Handle<Texture>>,
+    pub normal: Option<Handle<Texture>>,
+    pub z_color: Option<Handle<Texture>>,
+    pub size: u32,
+    pub alpha_offset: [f32; 2],
+    pub one_over_width: [f32; 2],
+    
 
 }
 impl Clipmap {
@@ -64,11 +67,14 @@ impl Clipmap {
             fixup_mesh: None,
             trim_mesh: None,
             elevation: None,
+            normal: None,
             z_color: None,
             size: size,
+            initialized: false,
             // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
-            alpha_offset: [(size - 1) as f32/2. - transition_width - 1.; 2],
-            one_over_width: [1. / (size as f32/10.); 2],
+            alpha_offset: [ transition_width - 1.; 2],
+            // alpha_offset: [transition_width - 1.; 2],
+            one_over_width: [1. / transition_width; 2],
         }
     }
 
@@ -116,8 +122,10 @@ impl<'a> PrefabData<'a> for ActiveClipmapPrefab {
         Ok(())
     }
 }
-
-pub struct ClipmapSystem;
+#[derive(Default)]
+pub struct ClipmapSystem {
+    progress: Option<ProgressCounter>,
+}
 
 impl<'a> System<'a> for ClipmapSystem {
     type SystemData = (
@@ -135,63 +143,61 @@ impl<'a> System<'a> for ClipmapSystem {
         // let upload = ShapeUpload{loader: loader, storage: storage,};
         if let Some(active_clipmap) = active.entity {
             let clipmap = clipmaps.get_mut(active_clipmap).unwrap();
-            if clipmap.block_mesh.is_none() {
+            if !clipmap.initialized {
+                self.progress = Some(ProgressCounter::default());
                 let block_size = ((clipmap.size + 1)/4) as usize;
-                let block_mesh_data = Shape::Plane(Some((block_size - 1, block_size -1 ))).generate::<ComboMeshCreator>(None);
-                clipmap.block_mesh = Some(loader.load_from_data(block_mesh_data, (), &mesh_storage));
-            }
-            // if clipmap.fixup_mesh.is_none() {
+                // Generate block mesh with m-1 x m-1 faces (ergo m x m vertices) and scale it by m/2.
+                let block_mesh_vert = Shape::Plane(Some((block_size - 1, block_size -1 ))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., (block_size - 1) as f32/2., 0.)));
+                let block_mesh_data = ComboMeshCreator::from(block_mesh_vert).into();
+
+                clipmap.block_mesh = Some(loader.load_from_data(block_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
+
             //     let block_size = ((clipmap.size + 1)/4) as usize;
             //     let block_mesh_data = Shape::Plane(Some((block_size, block_size))).generate::<ComboMeshCreator>(None);
             //     clipmap.fixup_mesh = Some(loader.load_from_data(block_mesh_data, (), &storage));
-            // }
-            if clipmap.elevation.is_none() {
-                let heightMetedata = TextureMetadata {
+                let height_metedata = TextureMetadata {
                     sampler: SamplerInfo::new(FilterMethod::Scale, WrapMode::Tile),
                     mip_levels: 1,
                     dynamic: false,
                     format: SurfaceType::R8_G8_B8_A8,
                     size: None,
-                    channel: ChannelType::Srgb,
+                    channel: ChannelType::Unorm,
                 };
+                // let elevetion_map_handle =  loader.load(
+                //     "texture/elevation.png",
+                //     PngFormat,
+                //     height_metedata,
+                //     self.progress.as_mut().unwrap(),
+                //     &texture_storage,
+                // );
                 let elevetion_map_handle =  loader.load(
                     "texture/elevation.png",
                     PngFormat,
-                    heightMetedata,
-                    (),
+                    TextureMetadata::unorm(),
+                    self.progress.as_mut().unwrap(),
                     &texture_storage,
                 );
                 clipmap.elevation = Some(elevetion_map_handle);
-            }
-            if clipmap.z_color.is_none() {
+                let normal_map_handle =  loader.load(
+                    "texture/normal.png",
+                    PngFormat,
+                    TextureMetadata::unorm(),
+                    self.progress.as_mut().unwrap(),
+                    &texture_storage,
+                );
+                clipmap.normal = Some(normal_map_handle);
+
                 let z_color_handle =  loader.load(
                     "texture/z_color.png",
                     PngFormat,
                     TextureMetadata::srgb(),
-                    (),
+                    self.progress.as_mut().unwrap(),
                     &texture_storage,
                 );
                 clipmap.z_color = Some(z_color_handle);
-            }
-            // if clipmap.normal_map.is_none() {
-            //     let heightMetedata = TextureMetadata {
-            //         sampler: SamplerInfo::new(FilterMethod::Scale, WrapMode::Tile),
-            //         mip_levels: 1,
-            //         dynamic: true,
-            //         format: SurfaceType::R32,
-            //         size: None,
-            //         channel: ChannelType::Srgb,
-            //     };
-            //     let normal_map_handle =  loader.load(
-            //         "texture/normal_map.png",
-            //         PngFormat,
-            //         heightMetedata,
-            //         (),
-            //         &texture_storage,
-            //     );
-            //     clipmap.normal_map = Some(normal_map_handle);
-            // }
 
+                clipmap.initialized = true;
+            }
         }
     }
 }

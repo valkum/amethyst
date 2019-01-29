@@ -32,17 +32,17 @@ out VertexData {
 
 // Vertex shader for rendering the geometry clipmap
 void main() {
-    // Paper suggests to use (fmod(gl_VertexID, size), floor(gl_VertexID/size))  and avoid the vertex buffer.
-    // For now we generate a block mesh with values of [-m/2; m/2]
+    // Paper suggests to use (fmod(gl_VertexID, size), floor(gl_VertexID/size)) and avoid the vertex buffer.
+    // For now we generate a block mesh with values of [-(m-1)/2; (m-1)/2]
     vec2 grid_pos = position.xy; 
     // convert from grid xy to world xy coordinates
     // Scale_factor.xy: grid spacing of current level
-    // Scale_factor.zw: origin of current block within world 
+    // Scale_factor.zw: origin of current block within world relative ect to the center.
     vec2 world_pos = (grid_pos + scale_factor.zw) * scale_factor.xy;
     // compute coordinates for vertex texture
     // Fine_block_orig.xy: 1/(w, h) of texture
     // Fine_block_orig.zw: origin of block in texture
-    vec2 uv = grid_pos * fine_block_orig.xy + fine_block_orig.zw;
+    vec2 uv = (grid_pos + fine_block_orig.zw) * fine_block_orig.xy;
 
     // sample the vertex texture
     vec4 zf_zd = textureLod(elevation_sampler, uv, 1.);
@@ -61,7 +61,7 @@ void main() {
     float z = zf + alpha.x * zd;
     z = z * z_scale_factor;
 
-    vec4 vertex_position = model * vec4(world_pos.x, world_pos.y, alpha.x*10,  1.0);
+    vec4 vertex_position = model * vec4(world_pos.x, world_pos.y, z,  1.0);
     
     vertex.position = vertex_position.xyz;
     vertex.tex_coord = uv;

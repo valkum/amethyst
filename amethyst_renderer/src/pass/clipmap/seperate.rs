@@ -68,7 +68,7 @@ enum TrimOrientation{
     NorthWest,
     SouthEast,
     SouthWest,
-
+    None
 }
 // #[derive(Debug)]
 // pub enum ClipmapError {
@@ -108,16 +108,18 @@ impl DrawClipmap {
 
     /// Returns mesh indices and fine-block-origin for given block id
     // TODO: index buffer should be 16-bit for max caching
-    fn block_offset(&mut self, size: u32, id: u32, trim_orientation: TrimOrientation) -> (f32, f32) {
+    // TODO: try to cache this here. Maybe precompute and store as vec in the component.
+    fn block_offset(&mut self, grid_size: u32, texture_size: u32, id: u32, trim_orientation: TrimOrientation) -> ((f32, f32), (f32, f32)) {
         // m is used here differently 
-        let one_offset : f32 = ((size+1)/4) as f32 -1.;
+        let one_offset : f32 = ((grid_size+1)/4) as f32 - 1.;
         let half_offset : f32 = one_offset/2.;
         let trim_offset = match trim_orientation {
-            TrimOrientation::NorthWest => (1., 1.),
-            TrimOrientation::NorthEast => (-1., 1.),
-            TrimOrientation::SouthWest => (1., -1.),
-            TrimOrientation::SouthEast => (-1., -1.),
-            _ => unreachable!()
+            TrimOrientation::NorthEast => (-1., -1.),
+            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::SouthEast => (-2., 0.),
+            TrimOrientation::SouthWest => (-1., -1.),
+            
+            _ => (0., 0.)
         };
 
         // Apperently the Shape Generator returns normalized grid coordinates.
@@ -137,43 +139,38 @@ impl DrawClipmap {
         //   _     => (0,0),
         // };
         let offset: (f32, f32) = match id {
-            0 => (-1. - half_offset - one_offset + trim_offset.0, -1. - half_offset - one_offset + trim_offset.1),
-            1 => (-1. - half_offset + trim_offset.0,              -1. - half_offset - one_offset + trim_offset.1),
-            2 => (1. + half_offset + trim_offset.0,               -1. - half_offset - one_offset + trim_offset.1),
-            3 => (1. + half_offset + one_offset + trim_offset.0,  -1. - half_offset - one_offset + trim_offset.1),
-            4 => (-1. - half_offset - one_offset + trim_offset.0, -1. - half_offset + trim_offset.1),
-            5 => (1. + half_offset + one_offset + trim_offset.0,  -1. - half_offset + trim_offset.1),
-            6 => (-1. - half_offset - one_offset + trim_offset.0, 1. + half_offset + trim_offset.1),
-            7 => (1. + half_offset + one_offset + trim_offset.0,  1. + half_offset + trim_offset.1),
-            8 => (-1. - half_offset - one_offset + trim_offset.0, 1. + half_offset + one_offset + trim_offset.1),
-            9 => (-1. - half_offset + trim_offset.0,              1. + half_offset + one_offset + trim_offset.1),
-            10=> (1. + half_offset + trim_offset.0,               1. + half_offset + one_offset + trim_offset.1),
-            11=> (1. + half_offset + one_offset + trim_offset.0,  1. + half_offset + one_offset + trim_offset.1),
+            0 => (- 1. - half_offset - one_offset, -1. - half_offset - one_offset),
+            1 => (- 1. - half_offset,              -1. - half_offset - one_offset),
+            2 => (1. + half_offset,                -1. - half_offset - one_offset),
+            3 => (1. + half_offset + one_offset,   -1. - half_offset - one_offset),
+            4 => (-1. - half_offset - one_offset,  -1. - half_offset),
+            5 => (1. + half_offset + one_offset,   -1. - half_offset),
+            6 => (-1. - half_offset - one_offset,  1. + half_offset),
+            7 => (1. + half_offset + one_offset,   1. + half_offset),
+            8 => (-1. - half_offset - one_offset,  1. + half_offset + one_offset),
+            9 => (-1. - half_offset,               1. + half_offset + one_offset),
+            10=> (1. + half_offset,                1. + half_offset + one_offset),
+            11=> (1. + half_offset + one_offset,   1. + half_offset + one_offset),
             _ => unreachable!()
         };
-        offset
-    }
-    fn block_texture_offset(&mut self, size: u32, id: u32) -> (f32, f32) {
-        let one_over_size = 1./size as f32;
-        let one_offset : f32 = ((size+1)/4) as f32 -1.;
-        let half_offset : f32 = one_offset/2.;
-
-        let offset: (f32, f32) = match id {
-            0 => (half_offset * one_over_size,           half_offset * one_over_size),
-            1 => (2. * half_offset * one_over_size,      half_offset * one_over_size),
-            2 => (1. - 2. * half_offset * one_over_size, half_offset * one_over_size),
-            3 => (1. - half_offset * one_over_size,      half_offset * one_over_size),
-            4 => (half_offset * one_over_size,           2. * half_offset * one_over_size),
-            5 => (1. - half_offset * one_over_size,      2. * half_offset * one_over_size),
-            6 => (half_offset * one_over_size,           1. - 2. * half_offset * one_over_size),
-            7 => (1. - half_offset * one_over_size,      1. - 2. * half_offset * one_over_size),
-            8 => (half_offset * one_over_size,           1. -  half_offset * one_over_size),
-            9 => (2. * half_offset * one_over_size,      1. -  half_offset * one_over_size),
-            10=> (1. - 2. * half_offset * one_over_size, 1. -  half_offset * one_over_size),
-            11=> (1. - half_offset * one_over_size,      1. -  half_offset * one_over_size),
+        // Texture offset is not rel to the center. 
+        // We add 1 to the orientation_trim offset to get a value in between [0, size] after adding the offset to each vertex position
+        let texture_offset: (f32, f32) = match id {
+            0 => (half_offset + trim_offset.0 + 1.,                              half_offset + trim_offset.1 + 1.),
+            1 => (half_offset + one_offset + trim_offset.0 + 1.,                 half_offset + trim_offset.1 + 1.),
+            2 => (texture_size as f32 - (half_offset + one_offset + trim_offset.0 + 1.), half_offset + trim_offset.1 + 1.),
+            3 => (texture_size as f32 - (half_offset + trim_offset.0 + 1.),              half_offset + trim_offset.1 + 1.),
+            4 => (half_offset + trim_offset.0 + 1.,                              half_offset + one_offset + trim_offset.1 + 1.),
+            5 => (texture_size as f32 - half_offset + trim_offset.0 + 1.,                half_offset + one_offset + trim_offset.1 + 1.),
+            6 => (half_offset + trim_offset.0 + 1.,                              texture_size as f32 - (half_offset + one_offset + trim_offset.1 + 1.)),
+            7 => (texture_size as f32 - half_offset + trim_offset.0 + 1.,                texture_size as f32 - (half_offset + one_offset + trim_offset.1 + 1.)),
+            8 => (half_offset + trim_offset.0 + 1.,                              texture_size as f32 - (half_offset + trim_offset.1 + 1.)),
+            9 => (half_offset + one_offset + trim_offset.0 + 1.,                 texture_size as f32 - (half_offset + trim_offset.1 + 1.)),
+            10=> (texture_size as f32 - (half_offset + one_offset + trim_offset.0 + 1.), texture_size as f32 - (half_offset + trim_offset.1 + 1.)),
+            11=> (texture_size as f32 - (half_offset + trim_offset.0 + 1.),              texture_size as f32 - (half_offset + trim_offset.1 + 1.)),
             _ => unreachable!()
         };
-        offset
+        ((offset.0 + trim_offset.0, offset.1 + trim_offset.1), texture_offset)
     }
     fn draw_block(
         &mut self,
@@ -182,18 +179,23 @@ impl DrawClipmap {
         mesh: &Mesh,
         size: u32,
         spacing: f32, 
-        one_over_width: f32,
+        texture_size: u32,
+        one_over_texture: f32,
         level: u32,
         id: u32,
         trim_orientation: TrimOrientation
         ) 
     {
-        let offset = self.block_offset(size, id, trim_orientation);
+        let (offset, texture_offset) = self.block_offset(size, texture_size, id, trim_orientation);
         effect.update_global("scale_factor", Into::<[f32; 4]>::into([ spacing, spacing, offset.0, offset.1]));
-        let texture_offset = self.block_texture_offset(size, id);
-        // dbg!((offset.0 - 4.) - 2.1);
-        effect.update_global("fine_block_orig", Into::<[f32; 4]>::into([one_over_width, one_over_width, texture_offset.0, texture_offset.1]));
-
+        effect.update_global("fine_block_orig", Into::<[f32; 4]>::into([one_over_texture, one_over_texture, texture_offset.0, texture_offset.1]));
+        // if id == 3 {
+        //     let w = (size as f32/ 10.);
+        //     let a = ((size as f32 - 1.) / 2. ) - w - 1.;
+        //     dbg!(3.5 + offset.0);
+        //     dbg!((3.5 + offset.0) - a);
+        //     dbg!(((3.5 + offset.0) - a) * 1./w);
+        // }
 
 
         effect.draw(mesh.slice(), encoder);
@@ -297,11 +299,13 @@ impl Pass for DrawClipmap {
                 if let Some(block_mesh) = mesh_storage.get(&clipmap.block_mesh.as_ref().unwrap()) {
                     // fine_block_orig.xy: 1/(w, h) of texture
                     // fine_block_orig.zw: origin of block in texture
+                    let mut texture_size = 0;
                     let mut one_over_texture = 1.;
                     if let Some(elevation_texture) = textures.get(&clipmap.elevation.as_ref().unwrap()) {
                         effect.data.textures.push(elevation_texture.view().clone());
                         effect.data.samplers.push(elevation_texture.sampler().clone());
                         one_over_texture = 1. / elevation_texture.size().0 as f32;
+                        texture_size = elevation_texture.size().0 as u32;
                     }
 
                     if let Some(normal_texture) = textures.get(&clipmap.normal.as_ref().unwrap()) { 
@@ -316,9 +320,9 @@ impl Pass for DrawClipmap {
                     }
                     effect.update_global("size", Into::<i32>::into(clipmap.size as i32));
 
-                    let z_scale_factor = 10.0;
+                    let z_scale_factor = 255.0;
                     effect.update_global("z_scale_factor", Into::<f32>::into(z_scale_factor));
-                    let z_tex_scale_factor = 10.;
+                    let z_tex_scale_factor = 100.;
                     effect.update_global("z_tex_scale_factor", Into::<f32>::into(z_tex_scale_factor));
 
                     // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
@@ -354,20 +358,23 @@ impl Pass for DrawClipmap {
                     // effect.draw(block_mesh.slice(), encoder);
 
                     for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, spacing, one_over_texture, 4, block_id, TrimOrientation::NorthEast);    
+                        self.draw_block(encoder, effect, block_mesh, clipmap.size, spacing, texture_size, one_over_texture, 5, block_id, TrimOrientation::SouthWest);    
                     }
                     for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 2.*spacing, one_over_texture, 3, block_id, TrimOrientation::NorthWest);    
+                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 2.*spacing, texture_size, one_over_texture, 4, block_id, TrimOrientation::None);    
                     }
                     for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 4.*spacing, one_over_texture, 2, block_id, TrimOrientation::SouthWest);    
+                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 4.*spacing, texture_size, one_over_texture, 3, block_id, TrimOrientation::None);    
                     }
-                    for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 8.*spacing, one_over_texture, 1, block_id, TrimOrientation::SouthEast);    
-                    }
-                    for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 16.*spacing, one_over_texture, 0, block_id, TrimOrientation::NorthEast);    
-                    }
+                    // for block_id in 0..12 {
+                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 8.*spacing, texture_size, one_over_texture, 2, block_id, TrimOrientation::NorthEast);    
+                    // }
+                    // for block_id in 0..12 {
+                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 16.*spacing, texture_size, one_over_texture, 1, block_id, TrimOrientation::SouthEast);    
+                    // }
+                    // for block_id in 0..12 {
+                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 32.*spacing, texture_size, one_over_texture, 0, block_id, TrimOrientation::SouthWest);    
+                    // }
                 }
             }
 
@@ -377,4 +384,3 @@ impl Pass for DrawClipmap {
     }
     
 }
-

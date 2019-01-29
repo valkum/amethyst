@@ -60,6 +60,8 @@ pub struct Clipmap{
 impl Clipmap {
     /// Creates a new instance with the default values for all fields
     pub fn new(size: u32) -> Self {
+        // Check that size is 2^k-1
+        assert!((size + 1) & size == 0);
         let transition_width = size as f32/10.;
 
         Clipmap {
@@ -72,7 +74,7 @@ impl Clipmap {
             size: size,
             initialized: false,
             // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
-            alpha_offset: [ transition_width - 1.; 2],
+            alpha_offset: [ ((size as f32 - 1.) / 2. ) - transition_width - 1.; 2],
             // alpha_offset: [transition_width - 1.; 2],
             one_over_width: [1. / transition_width; 2],
         }
@@ -152,16 +154,17 @@ impl<'a> System<'a> for ClipmapSystem {
 
                 clipmap.block_mesh = Some(loader.load_from_data(block_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
 
-            //     let block_size = ((clipmap.size + 1)/4) as usize;
-            //     let block_mesh_data = Shape::Plane(Some((block_size, block_size))).generate::<ComboMeshCreator>(None);
-            //     clipmap.fixup_mesh = Some(loader.load_from_data(block_mesh_data, (), &storage));
+                let fixup_mesh_vert = Shape::Plane(Some((block_size - 1, 2))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 2., 0.)));
+                dbg!(&fixup_mesh_vert);
+                let fixup_mesh_data = ComboMeshCreator::from(fixup_mesh_vert).into();
+                clipmap.fixup_mesh = Some(loader.load_from_data(fixup_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
                 let height_metedata = TextureMetadata {
                     sampler: SamplerInfo::new(FilterMethod::Scale, WrapMode::Tile),
                     mip_levels: 1,
-                    dynamic: false,
+                    dynamic: true,
                     format: SurfaceType::R8_G8_B8_A8,
                     size: None,
-                    channel: ChannelType::Unorm,
+                    channel: ChannelType::Srgb,
                 };
                 // let elevetion_map_handle =  loader.load(
                 //     "texture/elevation.png",
@@ -173,7 +176,7 @@ impl<'a> System<'a> for ClipmapSystem {
                 let elevetion_map_handle =  loader.load(
                     "texture/elevation.png",
                     PngFormat,
-                    TextureMetadata::unorm(),
+                    height_metedata,
                     self.progress.as_mut().unwrap(),
                     &texture_storage,
                 );

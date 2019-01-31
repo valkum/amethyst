@@ -109,16 +109,21 @@ impl DrawClipmap {
     /// Returns mesh indices and fine-block-origin for given block id
     // TODO: index buffer should be 16-bit for max caching
     // TODO: try to cache this here. Maybe precompute and store as vec in the component.
-    fn block_offset(&mut self, grid_size: u32, texture_size: u32, id: u32, trim_orientation: TrimOrientation) -> ((f32, f32), (f32, f32)) {
-        // m is used here differently 
+    // TODO: Change the catchall to unreachable!()
+    fn block_offset(
+        &mut self, 
+        grid_size: u32, 
+        texture_size: u32, 
+        id: u32, 
+        trim_orientation: &TrimOrientation
+    ) -> ((f32, f32), (f32, f32)) { 
         let one_offset : f32 = ((grid_size+1)/4) as f32 - 1.;
         let half_offset : f32 = one_offset/2.;
         let trim_offset = match trim_orientation {
-            TrimOrientation::NorthEast => (-1., -1.),
+            TrimOrientation::NorthEast => (1., 1.),
             TrimOrientation::NorthWest => (0., 2.),
             TrimOrientation::SouthEast => (-2., 0.),
             TrimOrientation::SouthWest => (-1., -1.),
-            
             _ => (0., 0.)
         };
 
@@ -178,50 +183,116 @@ impl DrawClipmap {
         effect: &mut Effect,
         mesh: &Mesh,
         size: u32,
-        spacing: f32, 
         texture_size: u32,
         one_over_texture: f32,
         level: u32,
         id: u32,
-        trim_orientation: TrimOrientation
+        trim_orientation: &TrimOrientation
         ) 
     {
-        let (offset, texture_offset) = self.block_offset(size, texture_size, id, trim_orientation);
-        effect.update_global("scale_factor", Into::<[f32; 4]>::into([ spacing, spacing, offset.0, offset.1]));
+        let scale = (1 << (level)) as f32;
+        let (offset, texture_offset) = self.block_offset(size, texture_size, id, &trim_orientation);
+        effect.update_global("scale_factor", Into::<[f32; 4]>::into([ scale, scale, offset.0, offset.1]));
         effect.update_global("fine_block_orig", Into::<[f32; 4]>::into([one_over_texture, one_over_texture, texture_offset.0, texture_offset.1]));
-        // if id == 3 {
-        //     let w = (size as f32/ 10.);
-        //     let a = ((size as f32 - 1.) / 2. ) - w - 1.;
-        //     dbg!(3.5 + offset.0);
-        //     dbg!((3.5 + offset.0) - a);
-        //     dbg!(((3.5 + offset.0) - a) * 1./w);
-        // }
-
-
+    
         effect.draw(mesh.slice(), encoder);
     }
-
-    fn ring_fix_up(size: usize) {
-        let m = (size+1)/4;
-        let generator = Some((3, m)).map(|(x, y)| gm::generators::Plane::subdivide(x,y)).unwrap_or_else(gm::generators::Plane::new);
-        // let horizontal_vertices = generator.shared_vertex_iter().collect::<Vec<_>>();
-        // generator
-        //     .indexed_polygon_iter()
-        //     .triangulate()
-        //     .map(|f| {
-        //         f.map_vertex(|u| {
-        //             let v = horizontal_vertices[u];
-        //             let pos = Some((m*2, m*2+3+2))
-        //                 .map(|(x, y, z)| Vector3::new(v.pos.x + x, v.pos.y + y, v.pos.z))
-        //                 .unwrap();
-        //                 // .unwrap_or_else(|| Vector3::from(v.pos));
-        //             (
-        //                 pos.into(),
-        //             )
-        //         })
-        //     })
-        //     .horizontal_vertices()
-        //     .collect::<Vec<_>>()
+    fn draw_l(
+        &mut self,
+        encoder: &mut Encoder,
+        effect: &mut Effect,
+        mesh: &Mesh,
+        size: u32,
+        texture_size: u32,
+        one_over_texture: f32,
+        level: u32,
+        trim_orientation: &TrimOrientation
+    ) {
+        let trim_offset = match trim_orientation {
+            TrimOrientation::NorthEast => (-1., -1.),
+            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::SouthEast => (-2., 0.),
+            TrimOrientation::SouthWest => (-1., -1.),
+            _ => (0., 0.)
+        };
+        let scale = (1 << (level)) as f32;
+        let offset = trim_offset;
+        effect.update_global("scale_factor", Into::<[f32; 4]>::into([ scale, scale, offset.0, offset.1]));
+        effect.update_global("fine_block_orig", Into::<[f32; 4]>::into([one_over_texture, one_over_texture, 0.0, 0.]));
+        effect.draw(mesh.slice(), encoder);
+    }
+    fn draw_fixup(
+        &mut self,
+        encoder: &mut Encoder,
+        effect: &mut Effect,
+        mesh: &Mesh,
+        size: u32,
+        texture_size: u32,
+        one_over_texture: f32,
+        level: u32,
+        trim_orientation: &TrimOrientation
+    ){
+        let trim_offset = match trim_orientation {
+            TrimOrientation::NorthEast => (-1., -1.),
+            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::SouthEast => (-2., 0.),
+            TrimOrientation::SouthWest => (-1., -1.),
+            _ => (0., 0.)
+        };
+        let scale = (1 << (level)) as f32;
+        let offset = trim_offset;
+        effect.update_global("scale_factor", Into::<[f32; 4]>::into([ scale, scale, offset.0, offset.1]));
+        effect.update_global("fine_block_orig", Into::<[f32; 4]>::into([one_over_texture, one_over_texture, 0., 0.]));
+        effect.draw(mesh.slice(), encoder);
+    }
+    /// Draws a clipmap layer.
+    // TODO: change the textures here, as each level has its own
+    fn draw_layer(&mut self,
+        encoder: &mut Encoder,
+        effect: &mut Effect,
+        block_mesh: Option<&Mesh>,
+        fixup_mesh: Option<&Mesh>,
+        l_mesh: Option<&Mesh>,
+        size: u32,
+        texture_size: u32,
+        one_over_texture: f32,
+        level: u32,
+        trim_orientation: TrimOrientation
+    ) {
+        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([1.0, 0.0, 0.0, 1.0]));
+        if let Some(mesh) = block_mesh {
+            // TODO: Figure out if this is slower than drawing all blocks for all layer first and then all other shapes respectively
+            if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
+            {
+                effect.clear();
+                error!("Could not set attribute buffer");
+                return;
+            }
+            for id in 0..12 {
+                self.draw_block(encoder, effect, mesh, size, texture_size, one_over_texture, level, id, &trim_orientation);
+            }
+        }
+        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.0, 0.5, 1.0, 1.0]));
+        if let Some(mesh) = fixup_mesh {
+            if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
+            {
+                effect.clear();
+                error!("Could not set attribute buffer");
+                return;
+            }
+            dbg!(&mesh);
+            self.draw_fixup(encoder, effect, mesh, size, texture_size, one_over_texture, level, &trim_orientation);
+        }
+        // effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.0, 1.0, 0.0, 1.0]));
+        // if let Some(mesh) = l_mesh {
+        //     if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
+        //     {
+        //         effect.clear();
+        //         error!("Could not set attribute buffer");
+        //         return;
+        //     }
+        //     self.draw_l(encoder, effect, mesh, size, texture_size, one_over_texture, level, &trim_orientation);
+        // }
 
     }
 }
@@ -268,6 +339,7 @@ impl Pass for DrawClipmap {
             // .with_raw_global("camera_position")
             .with_raw_global("fine_block_orig")
             .with_raw_global("scale_factor")
+            .with_raw_global("color_overwrite")
             .with_output("color", Some(DepthMode::LessEqualWrite))
             .build()
     }
@@ -296,86 +368,83 @@ impl Pass for DrawClipmap {
                 // let block_mesh_handle = clipmap.get_block_mesh();
                 // if block_mesh_handle.initiali() { return; }
                 // let block_mesh = mesh_storage.get(block_mesh_handle.unwrap()).expect("Mesh not in Storage");
-                if let Some(block_mesh) = mesh_storage.get(&clipmap.block_mesh.as_ref().unwrap()) {
-                    // fine_block_orig.xy: 1/(w, h) of texture
-                    // fine_block_orig.zw: origin of block in texture
-                    let mut texture_size = 0;
-                    let mut one_over_texture = 1.;
-                    if let Some(elevation_texture) = textures.get(&clipmap.elevation.as_ref().unwrap()) {
-                        effect.data.textures.push(elevation_texture.view().clone());
-                        effect.data.samplers.push(elevation_texture.sampler().clone());
-                        one_over_texture = 1. / elevation_texture.size().0 as f32;
-                        texture_size = elevation_texture.size().0 as u32;
-                    }
-
-                    if let Some(normal_texture) = textures.get(&clipmap.normal.as_ref().unwrap()) { 
-                        effect.data.textures.push(normal_texture.view().clone());
-                        effect.data.samplers.push(normal_texture.sampler().clone());
-                    }
-
-                    
-                    if let Some(z_color_texture) = textures.get(&clipmap.z_color.as_ref().unwrap()) { 
-                        effect.data.textures.push(z_color_texture.view().clone());
-                        effect.data.samplers.push(z_color_texture.sampler().clone());
-                    }
-                    effect.update_global("size", Into::<i32>::into(clipmap.size as i32));
-
-                    let z_scale_factor = 255.0;
-                    effect.update_global("z_scale_factor", Into::<f32>::into(z_scale_factor));
-                    let z_tex_scale_factor = 100.;
-                    effect.update_global("z_tex_scale_factor", Into::<f32>::into(z_tex_scale_factor));
-
-                    // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
-                    effect.update_global("alpha_offset", Into::<[f32; 2]>::into(clipmap.alpha_offset));
-                    effect.update_global("one_over_width", Into::<[f32; 2]>::into(clipmap.one_over_width));
-                    // let player_camera_pos = camera
-                    //     .as_ref()
-                    //     .map(|&(ref cam, ref transform)| {
-                    //         let view: [f32; 3] = transform.0.column(3).xyz().into();
-                    //         view
-                    //     })
-                    //     .unwrap_or_else(|| {
-                    //         let identity: [f32; 3] = Vector3::new(0., 0., 0.).into();
-                    //         identity
-                    //     });
-                    // effect.update_global("camera_position", Into::<[f32; 3]>::into(player_camera_pos));
-
-                    
-
-                    // Scale_factor.xy: grid spacing of current level
-                    // Scale_factor.zw: origin of current block within world 
-                    let spacing = 1.;
-                    // let mut scale_factor = [100., 100., 0., 0.];
-                    // effect.update_global("scale_factor", Into::<[f32; 4]>::into(scale_factor));
-
-
-                    if !set_attribute_buffers(effect, block_mesh, &ATTRIBUTES)
-                    {
-                        effect.clear();
-                        error!("Could not set attribute buffer");
-                        return;
-                    }
-                    // effect.draw(block_mesh.slice(), encoder);
-
-                    for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, spacing, texture_size, one_over_texture, 5, block_id, TrimOrientation::SouthWest);    
-                    }
-                    for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 2.*spacing, texture_size, one_over_texture, 4, block_id, TrimOrientation::None);    
-                    }
-                    for block_id in 0..12 {
-                        self.draw_block(encoder, effect, block_mesh, clipmap.size, 4.*spacing, texture_size, one_over_texture, 3, block_id, TrimOrientation::None);    
-                    }
-                    // for block_id in 0..12 {
-                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 8.*spacing, texture_size, one_over_texture, 2, block_id, TrimOrientation::NorthEast);    
-                    // }
-                    // for block_id in 0..12 {
-                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 16.*spacing, texture_size, one_over_texture, 1, block_id, TrimOrientation::SouthEast);    
-                    // }
-                    // for block_id in 0..12 {
-                    //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 32.*spacing, texture_size, one_over_texture, 0, block_id, TrimOrientation::SouthWest);    
-                    // }
+                let block_mesh = mesh_storage.get(&clipmap.block_mesh.as_ref().unwrap());
+                let ring_fixup_mesh = mesh_storage.get(&clipmap.ring_fixup_mesh.as_ref().unwrap());
+                let l_shape_mesh = mesh_storage.get(&clipmap.l_shape_mesh.as_ref().unwrap());
+                // fine_block_orig.xy: 1/(w, h) of texture
+                // fine_block_orig.zw: origin of block in texture
+                let mut texture_size = 0;
+                let mut one_over_texture = 1.;
+                if let Some(elevation_texture) = textures.get(&clipmap.elevation.as_ref().unwrap()) {
+                    effect.data.textures.push(elevation_texture.view().clone());
+                    effect.data.samplers.push(elevation_texture.sampler().clone());
+                    one_over_texture = 1. / elevation_texture.size().0 as f32;
+                    texture_size = elevation_texture.size().0 as u32;
                 }
+
+                if let Some(normal_texture) = textures.get(&clipmap.normal.as_ref().unwrap()) { 
+                    effect.data.textures.push(normal_texture.view().clone());
+                    effect.data.samplers.push(normal_texture.sampler().clone());
+                }
+
+                
+                if let Some(z_color_texture) = textures.get(&clipmap.z_color.as_ref().unwrap()) { 
+                    effect.data.textures.push(z_color_texture.view().clone());
+                    effect.data.samplers.push(z_color_texture.sampler().clone());
+                }
+                effect.update_global("size", Into::<i32>::into(clipmap.size as i32));
+
+                let z_scale_factor = 255.0;
+                effect.update_global("z_scale_factor", Into::<f32>::into(z_scale_factor));
+                let z_tex_scale_factor = 100.;
+                effect.update_global("z_tex_scale_factor", Into::<f32>::into(z_tex_scale_factor));
+
+                // Per forumla this hould be: (n-1)/2-w-1 with w = transition width (n/10)
+                effect.update_global("alpha_offset", Into::<[f32; 2]>::into(clipmap.alpha_offset));
+                effect.update_global("one_over_width", Into::<[f32; 2]>::into(clipmap.one_over_width));
+                // let player_camera_pos = camera
+                //     .as_ref()
+                //     .map(|&(ref cam, ref transform)| {
+                //         let view: [f32; 3] = transform.0.column(3).xyz().into();
+                //         view
+                //     })
+                //     .unwrap_or_else(|| {
+                //         let identity: [f32; 3] = Vector3::new(0., 0., 0.).into();
+                //         identity
+                //     });
+                // effect.update_global("camera_position", Into::<[f32; 3]>::into(player_camera_pos));
+
+                
+
+                // Scale_factor.xy: grid spacing of current level
+                // Scale_factor.zw: origin of current block within world 
+                // let spacing = 1.;
+                // let mut scale_factor = [100., 100., 0., 0.];
+                // effect.update_global("scale_factor", Into::<[f32; 4]>::into(scale_factor));
+
+
+                // effect.draw(block_mesh.slice(), encoder);
+                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 0, TrimOrientation::NorthEast);
+                // self.draw_layer(encoder, effect, block_mesh, l_shape_mesh, ring_fixup_mesh, clipmap.size, texture_size, one_over_texture, 1, TrimOrientation::NorthEast);
+                // self.draw_layer(encoder, effect, block_mesh, l_shape_mesh, ring_fixup_mesh, clipmap.size, texture_size, one_over_texture, 2, TrimOrientation::NorthEast);
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, spacing, texture_size, one_over_texture, 5, block_id, TrimOrientation::SouthWest);    
+                // }
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 2.*spacing, texture_size, one_over_texture, 4, block_id, TrimOrientation::None);    
+                // }
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 4.*spacing, texture_size, one_over_texture, 3, block_id, TrimOrientation::None);    
+                // }
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 8.*spacing, texture_size, one_over_texture, 2, block_id, TrimOrientation::NorthEast);    
+                // }
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 16.*spacing, texture_size, one_over_texture, 1, block_id, TrimOrientation::SouthEast);    
+                // }
+                // for block_id in 0..12 {
+                //     self.draw_block(encoder, effect, block_mesh, clipmap.size, 32.*spacing, texture_size, one_over_texture, 0, block_id, TrimOrientation::SouthWest);    
+                // }
             }
 
 

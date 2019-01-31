@@ -16,6 +16,7 @@ uniform vec2 one_over_width;
 uniform vec3 camera_position;
 uniform vec4 fine_block_orig;
 uniform vec4 scale_factor;
+uniform vec4 color_overwrite;
 
 uniform sampler2D elevation_sampler;
 

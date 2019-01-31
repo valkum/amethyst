@@ -12,16 +12,16 @@ use crate::{
         pass::{Pass, PassData},
         DepthMode, Effect, NewEffect,
     },
-    Separate,
     pass::{
         shaded_util::{set_light_args, setup_light_buffers},
         util::{get_camera, setup_textures, setup_vertex_args, set_attribute_buffers, set_view_args, ViewArgs},
     },
     resources::AmbientColor,
-    ActiveCamera, Camera, Encoder, Factory, Mesh, PosTex, Rgba, Shape, ComboMeshCreator, build_mesh_with_combo, ShapeUpload,
+    ActiveCamera, Camera, Encoder, Factory, Mesh, PosTex, Rgba, Shape, build_mesh_with_combo, ShapeUpload,
     VertexFormat, 
-    vertex::{Attributes, Position, TexCoord},
-    MeshData,
+    vertex::{Attributes, Position, Separate, TexCoord},
+    MeshData, 
+    ComboMeshCreator, MeshCreator,
     TextureMetadata, Texture, SamplerInfo, WrapMode, FilterMethod, SurfaceType,
     PngFormat,
 };
@@ -43,11 +43,12 @@ type ClipmapMeshHandle = Handle<Mesh>;
 #[derive(Clone, PrefabData)]
 #[prefab(Component)]
 // #[serde(default)]
+// TODO: Doc
 pub struct Clipmap{
     pub initialized: bool,
     pub block_mesh: Option<ClipmapMeshHandle>,
-    pub fixup_mesh: Option<ClipmapMeshHandle>,
-    pub trim_mesh: Option<[ClipmapMeshHandle; 4]>,
+    pub ring_fixup_mesh: Option<ClipmapMeshHandle>,
+    pub l_shape_mesh: Option<ClipmapMeshHandle>,
     pub elevation: Option<Handle<Texture>>,
     pub normal: Option<Handle<Texture>>,
     pub z_color: Option<Handle<Texture>>,
@@ -66,8 +67,8 @@ impl Clipmap {
 
         Clipmap {
             block_mesh: None,
-            fixup_mesh: None,
-            trim_mesh: None,
+            ring_fixup_mesh: None,
+            l_shape_mesh: None,
             elevation: None,
             normal: None,
             z_color: None,
@@ -79,14 +80,6 @@ impl Clipmap {
             one_over_width: [1. / transition_width; 2],
         }
     }
-
-
-
-    pub fn get_block_mesh(&self) -> Option<&ClipmapMeshHandle> { self.block_mesh.as_ref() }
-
-    pub fn get_uniforms(&self) -> (u32, [f32; 2], [f32; 2]) {(self.size, self.alpha_offset, self.one_over_width)}
-    pub fn get_elevation(&self) -> Option<&Handle<Texture>> {self.elevation.as_ref()}
-    pub fn get_z_color(&self) -> Option<&Handle<Texture>> {self.z_color.as_ref()}
 }
 impl Component for Clipmap {
     type Storage = HashMapStorage<Self>;
@@ -140,12 +133,10 @@ impl<'a> System<'a> for ClipmapSystem {
     );
 
     fn run(&mut self, (active, mut clipmaps, loader, mesh_storage, texture_storage): Self::SystemData) {
-        
-
-        // let upload = ShapeUpload{loader: loader, storage: storage,};
         if let Some(active_clipmap) = active.entity {
             let clipmap = clipmaps.get_mut(active_clipmap).unwrap();
             if !clipmap.initialized {
+                debug!("Creating clipmap with size {}x{}", clipmap.size, clipmap.size);
                 self.progress = Some(ProgressCounter::default());
                 let block_size = ((clipmap.size + 1)/4) as usize;
                 // Generate block mesh with m-1 x m-1 faces (ergo m x m vertices) and scale it by m/2.
@@ -154,10 +145,53 @@ impl<'a> System<'a> for ClipmapSystem {
 
                 clipmap.block_mesh = Some(loader.load_from_data(block_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
 
-                let fixup_mesh_vert = Shape::Plane(Some((block_size - 1, 2))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 2., 0.)));
-                dbg!(&fixup_mesh_vert);
-                let fixup_mesh_data = ComboMeshCreator::from(fixup_mesh_vert).into();
-                clipmap.fixup_mesh = Some(loader.load_from_data(fixup_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
+
+
+                let fixup_mesh_horizontal = Shape::Plane(Some((block_size - 1, 2))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 1., 0.)));
+                let fixup_mesh_vertical = Shape::Plane(Some((2, block_size - 1))).generate_vertices::<ComboMeshCreator>(Some((1., (block_size - 1) as f32/2., 0.)));
+
+                let mut fixup_mesh_vert_north : Vec<Separate<Position>> = fixup_mesh_vertical.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0], x[1]-(clipmap.size/2) as f32, x[2]])
+                    }).collect();
+                let mut fixup_mesh_vert_south : Vec<Separate<Position>> = fixup_mesh_vertical.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0], x[1]+(clipmap.size/2) as f32, x[2]])
+                    }).collect();
+
+                let mut fixup_mesh_vert_west : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0]-(clipmap.size/2) as f32, x[1], x[2]])
+                    }).collect();
+                let mut fixup_mesh_vert_east : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0]+(clipmap.size/2) as f32, x[1], x[2]])
+                    }).collect();
+
+                let mut fixup_mesh_vertices : Vec<Separate<Position>> = Vec::new();
+                fixup_mesh_vertices.append(&mut fixup_mesh_vert_north);
+                fixup_mesh_vertices.append(&mut fixup_mesh_vert_west);
+                fixup_mesh_vertices.append(&mut fixup_mesh_vert_east);
+                fixup_mesh_vertices.append(&mut fixup_mesh_vert_south);
+                let fixup_mesh_data = ComboMeshCreator::from(ComboMeshCreator::new((fixup_mesh_vertices, None, None, None, None))).into();
+                
+                clipmap.ring_fixup_mesh = Some(loader.load_from_data(fixup_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
+
+
+
+                let l_shape_mesh_vert = Shape::Plane(Some((block_size - 1, 1))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 1., 0.)));
+
+                let l_shape_mesh_data = ComboMeshCreator::from(l_shape_mesh_vert).into();
+                clipmap.l_shape_mesh = Some(loader.load_from_data(l_shape_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
+
+
+
+
+
                 let height_metedata = TextureMetadata {
                     sampler: SamplerInfo::new(FilterMethod::Scale, WrapMode::Tile),
                     mip_levels: 1,

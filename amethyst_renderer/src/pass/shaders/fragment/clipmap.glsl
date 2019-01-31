@@ -27,6 +27,7 @@ layout (std140) uniform DirectionalLights {
 
 uniform vec3 ambient_color;
 uniform vec3 camera_position;
+uniform vec4 color_overwrite;
 
 uniform sampler2D normal_sampler;
 uniform sampler2D z_based_color;
@@ -82,5 +83,5 @@ void main() {
 
 
     // assign terrain color based on its elevation 
-    out_color = vec4(lighting, 1.0) * texture(z_based_color, vec2(0., vertex.z));
+    out_color = (1 - color_overwrite.w) * (vec4(lighting, 1.0) * texture(z_based_color, vec2(0., vertex.z))) + color_overwrite.w * color_overwrite;
 }

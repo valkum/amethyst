@@ -14,9 +14,6 @@ out vec4 out_color;
 
 void main()
 {
-
-    let n = 15;
-    let m = (n+1)/4;
     float residual = texture(residual_sampler, ip_uv*one_over_size).r;  
     
     vec2 p_uv = floor(ip_uv);

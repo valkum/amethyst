@@ -1,4 +1,4 @@
-use amethyst_assets::{Handle, PrefabData, PrefabError, Loader, AssetStorage, ProgressCounter};
+use amethyst_assets::{Handle, PrefabData, PrefabError, Loader, AssetStorage, ProgressCounter, Completion};
 use amethyst_core::{
     transform::GlobalTransform,
     specs::{
@@ -135,10 +135,27 @@ impl<'a> System<'a> for ClipmapSystem {
     fn run(&mut self, (active, mut clipmaps, loader, mesh_storage, texture_storage): Self::SystemData) {
         if let Some(active_clipmap) = active.entity {
             let clipmap = clipmaps.get_mut(active_clipmap).unwrap();
-            if !clipmap.initialized {
+            if let Some(progress) = &self.progress {
+                
+                match progress.complete() {
+                    Completion::Complete => {
+                        clipmap.initialized = true;
+                        debug!("Clipmap generation completed");
+                        self.progress = None;
+                    }
+                    _ => {
+                        dbg!(progress.errors());
+                    }
+                }
+            }
+            
+            if !clipmap.initialized && self.progress.is_none() {
                 debug!("Creating clipmap with size {}x{}", clipmap.size, clipmap.size);
                 self.progress = Some(ProgressCounter::default());
                 let block_size = ((clipmap.size + 1)/4) as usize;
+                let one_offset : f32 = ((clipmap.size+1)/4) as f32 - 1.;
+                let half_offset : f32 = one_offset/2.;
+                let ring_fixup_offset = 1. + half_offset + one_offset;
                 // Generate block mesh with m-1 x m-1 faces (ergo m x m vertices) and scale it by m/2.
                 let block_mesh_vert = Shape::Plane(Some((block_size - 1, block_size -1 ))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., (block_size - 1) as f32/2., 0.)));
                 let block_mesh_data = ComboMeshCreator::from(block_mesh_vert).into();
@@ -153,23 +170,23 @@ impl<'a> System<'a> for ClipmapSystem {
                 let mut fixup_mesh_vert_north : Vec<Separate<Position>> = fixup_mesh_vertical.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0], x[1]-(clipmap.size/2) as f32, x[2]])
+                        Separate::<Position>::new([x[0], x[1]-ring_fixup_offset, x[2]])
                     }).collect();
                 let mut fixup_mesh_vert_south : Vec<Separate<Position>> = fixup_mesh_vertical.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0], x[1]+(clipmap.size/2) as f32, x[2]])
+                        Separate::<Position>::new([x[0], x[1]+ring_fixup_offset, x[2]])
                     }).collect();
 
                 let mut fixup_mesh_vert_west : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0]-(clipmap.size/2) as f32, x[1], x[2]])
+                        Separate::<Position>::new([x[0]-ring_fixup_offset, x[1], x[2]])
                     }).collect();
                 let mut fixup_mesh_vert_east : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0]+(clipmap.size/2) as f32, x[1], x[2]])
+                        Separate::<Position>::new([x[0]+ring_fixup_offset, x[1], x[2]])
                     }).collect();
 
                 let mut fixup_mesh_vertices : Vec<Separate<Position>> = Vec::new();
@@ -180,7 +197,6 @@ impl<'a> System<'a> for ClipmapSystem {
                 let fixup_mesh_data = ComboMeshCreator::from(ComboMeshCreator::new((fixup_mesh_vertices, None, None, None, None))).into();
                 
                 clipmap.ring_fixup_mesh = Some(loader.load_from_data(fixup_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
-
 
 
                 let l_shape_mesh_vert = Shape::Plane(Some((block_size - 1, 1))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 1., 0.)));
@@ -232,8 +248,6 @@ impl<'a> System<'a> for ClipmapSystem {
                     &texture_storage,
                 );
                 clipmap.z_color = Some(z_color_handle);
-
-                clipmap.initialized = true;
             }
         }
     }

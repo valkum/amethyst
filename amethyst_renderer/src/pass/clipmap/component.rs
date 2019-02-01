@@ -181,12 +181,12 @@ impl<'a> System<'a> for ClipmapSystem {
                 let mut fixup_mesh_vert_west : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0]-ring_fixup_offset, x[1], x[2]])
+                        Separate::<Position>::new([x[0]+ring_fixup_offset, x[1], x[2]])
                     }).collect();
                 let mut fixup_mesh_vert_east : Vec<Separate<Position>> = fixup_mesh_horizontal.vertices()
                     .into_iter()
                     .map(|Separate(x)| {
-                        Separate::<Position>::new([x[0]+ring_fixup_offset, x[1], x[2]])
+                        Separate::<Position>::new([x[0]-ring_fixup_offset, x[1], x[2]])
                     }).collect();
 
                 let mut fixup_mesh_vertices : Vec<Separate<Position>> = Vec::new();
@@ -198,10 +198,24 @@ impl<'a> System<'a> for ClipmapSystem {
                 
                 clipmap.ring_fixup_mesh = Some(loader.load_from_data(fixup_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
 
-
-                let l_shape_mesh_vert = Shape::Plane(Some((block_size - 1, 1))).generate_vertices::<ComboMeshCreator>(Some(((block_size - 1) as f32/2., 1., 0.)));
-
-                let l_shape_mesh_data = ComboMeshCreator::from(l_shape_mesh_vert).into();
+                // TODO: Generate the remaining 3 shapes. (NorthWest, SouthEast and SouthWest)
+                let l_shape_mesh_horizontal = Shape::Plane(Some((2*(block_size - 1)+2, 1))).generate_vertices::<ComboMeshCreator>(Some(((2*(block_size - 1)+2) as f32/2., 0.5, 0.)));
+                let l_shape_mesh_vertical = Shape::Plane(Some((1, 2*(block_size - 1) + 1))).generate_vertices::<ComboMeshCreator>(Some((0.5, (2*(block_size - 1)+1) as f32/2.,  0.)));
+                dbg!(&l_shape_mesh_vertical.vertices());
+                let mut l_shape_west_verts : Vec<Separate<Position>> = l_shape_mesh_vertical.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0]+(block_size as f32) - 0.5, x[1] - 0.5, x[2]])
+                    }).collect();
+                let mut l_shape_north_east_verts : Vec<Separate<Position>> = l_shape_mesh_horizontal.vertices()
+                    .into_iter()
+                    .map(|Separate(x)| {
+                        Separate::<Position>::new([x[0], x[1]+(block_size as f32) - 0.5, x[2]])
+                    }).collect();
+                l_shape_north_east_verts.append(&mut l_shape_west_verts);
+                
+    
+                let l_shape_mesh_data = ComboMeshCreator::from(ComboMeshCreator::new((l_shape_north_east_verts, None, None, None, None))).into();
                 clipmap.l_shape_mesh = Some(loader.load_from_data(l_shape_mesh_data, self.progress.as_mut().unwrap(), &mesh_storage));
 
 

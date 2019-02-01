@@ -120,8 +120,8 @@ impl DrawClipmap {
         let one_offset : f32 = ((grid_size+1)/4) as f32 - 1.;
         let half_offset : f32 = one_offset/2.;
         let trim_offset = match trim_orientation {
-            TrimOrientation::NorthEast => (1., 1.),
-            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::NorthWest => (1., 1.),
+            TrimOrientation::NorthEast => (0., 2.),
             TrimOrientation::SouthEast => (-2., 0.),
             TrimOrientation::SouthWest => (-1., -1.),
             _ => (0., 0.)
@@ -209,8 +209,8 @@ impl DrawClipmap {
         trim_orientation: &TrimOrientation
     ) {
         let trim_offset = match trim_orientation {
-            TrimOrientation::NorthEast => (-1., -1.),
-            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::NorthWest => (1., 1.),
+            TrimOrientation::NorthEast => (0., 2.),
             TrimOrientation::SouthEast => (-2., 0.),
             TrimOrientation::SouthWest => (-1., -1.),
             _ => (0., 0.)
@@ -233,8 +233,8 @@ impl DrawClipmap {
         trim_orientation: &TrimOrientation
     ){
         let trim_offset = match trim_orientation {
-            TrimOrientation::NorthEast => (1., 1.),
-            TrimOrientation::NorthWest => (0., 2.),
+            TrimOrientation::NorthWest => (1., 1.),
+            TrimOrientation::NorthEast => (0., 2.),
             TrimOrientation::SouthEast => (-2., 0.),
             TrimOrientation::SouthWest => (-1., -1.),
             _ => (0., 0.)
@@ -260,7 +260,7 @@ impl DrawClipmap {
         trim_orientation: TrimOrientation
     ) {
         // debug!("Draw Blocks");
-        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([1.0, 0.0, 0.0, 1.0]));
+        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.0, 0.666, 0.0862, 1.0]));
         if let Some(mesh) = block_mesh {
             // TODO: Figure out if this is slower than drawing all blocks for all layer first and then all other shapes respectively
             if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
@@ -275,7 +275,7 @@ impl DrawClipmap {
             effect.clear();
         }
         // debug!("Draw ring fixup");
-        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.0, 0.5, 1.0, 1.0]));
+        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([1.0, 0.4313, 0.20784, 1.0]));
         if let Some(mesh) = fixup_mesh {
             if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
             {
@@ -288,16 +288,17 @@ impl DrawClipmap {
             effect.clear();
         }
         // debug!("Draw l shape");
-        // effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.0, 1.0, 0.0, 1.0]));
-        // if let Some(mesh) = l_mesh {
-        //     if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
-        //     {
-        //         effect.clear();
-        //         error!("Could not set attribute buffer");
-        //         return;
-        //     }
-        //     self.draw_l(encoder, effect, mesh, size, texture_size, one_over_texture, level, &trim_orientation);
-        // }
+        effect.update_global("color_overwrite", Into::<[f32; 4]>::into([0.999, 0.20784, 0.317, 1.0]));
+        if let Some(mesh) = l_mesh {
+            if !set_attribute_buffers(effect, mesh, &ATTRIBUTES)
+            {
+                effect.clear();
+                error!("Could not set attribute buffer");
+                return;
+            }
+            self.draw_l(encoder, effect, mesh, size, texture_size, one_over_texture, level, &trim_orientation);
+            effect.clear();
+        }
 
     }
 }
@@ -426,9 +427,9 @@ impl Pass for DrawClipmap {
 
 
                 // effect.draw(block_mesh.slice(), encoder);
-                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 0, TrimOrientation::NorthEast);
-                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 1, TrimOrientation::NorthEast);
-                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 2, TrimOrientation::NorthEast);
+                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 0, TrimOrientation::NorthWest);
+                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 1, TrimOrientation::NorthWest);
+                self.draw_layer(encoder, effect, block_mesh, ring_fixup_mesh, l_shape_mesh, clipmap.size, texture_size, one_over_texture, 2, TrimOrientation::NorthWest);
                 // for block_id in 0..12 {
                 //     self.draw_block(encoder, effect, block_mesh, clipmap.size, spacing, texture_size, one_over_texture, 5, block_id, TrimOrientation::SouthWest);    
                 // }

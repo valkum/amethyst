@@ -43,16 +43,16 @@ void main() {
     // compute coordinates for vertex texture
     // Fine_block_orig.xy: 1/(w, h) of texture
     // Fine_block_orig.zw: origin of block in texture
-    vec2 uv = (grid_pos + fine_block_orig.zw) * fine_block_orig.xy;
+    vec2 uv = floor(grid_pos + fine_block_orig.zw) * fine_block_orig.xy;
 
     // sample the vertex texture
-    vec4 zf_zd = textureLod(elevation_sampler, uv, 1.);
+    vec4 zf_zd = texelFetch(elevation_sampler, ivec2(uv.x,uv.y), 0);
     // unpack to obtain zf and zd = (zc - zf)
     // zf is elevation value in current (fine) level
     // zc is elevation value in coarser level
-    float zf = floor(zf_zd.x);
+    float zf = zf_zd.x;
     // float zd = fract(zf_zd.x) * 512 - 256; // (zd = zc - zf)
-    float zd = floor(zf_zd.y);
+    float zd = zf_zd.y;
 
     // compute alpha (transition parameter) and blend elevation
     // vec2 alpha = clamp((abs(world_pos - camera_position.xy) - alpha_offset) * one_over_width, 0, 1);
@@ -68,6 +68,6 @@ void main() {
     vertex.tex_coord = uv;
     vertex.z = z * z_tex_scale_factor; 
     vertex.alpha = alpha.x;
-    vertex.test = zf_zd;
+    vertex.test = vec4(grid_pos + fine_block_orig.zw, 0, 0);
     gl_Position = proj * view * vertex_position;
 }

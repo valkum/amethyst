@@ -8,7 +8,8 @@ pub use self::{
     shaded::*,
     skinning::set_skinning_buffers,
     skybox::*,
-    util::{get_camera, set_vertex_args},
+    shaded_util::*,
+    util::*,
 };
 
 mod debug_lines;

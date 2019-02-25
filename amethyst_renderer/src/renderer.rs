@@ -313,7 +313,7 @@ fn init_backend(
         .with_gl(GlRequest::Latest);
 
     let (win, dev, fac, color, depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(wb, ctx, el);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(wb, ctx, el).expect("Failed to create window");
     let size = win
         .get_inner_size()
         .ok_or(error::Error::WindowDestroyed)?

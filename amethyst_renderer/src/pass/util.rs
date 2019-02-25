@@ -26,7 +26,7 @@ use crate::{
     Rgba,
 };
 
-pub(crate) enum TextureType {
+pub enum TextureType {
     Albedo,
     Emission,
     Normal,
@@ -38,14 +38,14 @@ pub(crate) enum TextureType {
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct ViewArgs {
+pub struct ViewArgs {
     proj: mat4,
     view: mat4,
 }
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct VertexArgs {
+pub struct VertexArgs {
     proj: mat4,
     view: mat4,
     model: mat4,
@@ -54,13 +54,13 @@ pub(crate) struct VertexArgs {
 
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct TextureOffsetPod {
+pub struct TextureOffsetPod {
     pub u_offset: vec2,
     pub v_offset: vec2,
 }
 
 impl TextureOffsetPod {
-    pub(crate) fn from_offset(offset: &TextureOffset) -> Self {
+    pub fn from_offset(offset: &TextureOffset) -> Self {
         TextureOffsetPod {
             u_offset: [offset.u.0, offset.u.1].into(),
             v_offset: [offset.v.0, offset.v.1].into(),
@@ -68,7 +68,7 @@ impl TextureOffsetPod {
     }
 }
 
-pub(crate) fn set_attribute_buffers(
+pub fn set_attribute_buffers(
     effect: &mut Effect,
     mesh: &Mesh,
     attributes: &[Attributes<'static>],
@@ -90,12 +90,12 @@ pub(crate) fn set_attribute_buffers(
     true
 }
 
-pub(crate) fn add_texture(effect: &mut Effect, texture: &Texture) {
+pub fn add_texture(effect: &mut Effect, texture: &Texture) {
     effect.data.textures.push(texture.view().clone());
     effect.data.samplers.push(texture.sampler().clone());
 }
 
-pub(crate) fn setup_textures(builder: &mut EffectBuilder<'_>, types: &[TextureType]) {
+pub fn setup_textures(builder: &mut EffectBuilder<'_>, types: &[TextureType]) {
     use self::TextureType::*;
 
     #[cfg(feature = "profiler")]
@@ -115,7 +115,7 @@ pub(crate) fn setup_textures(builder: &mut EffectBuilder<'_>, types: &[TextureTy
     setup_texture_offsets(builder, types);
 }
 
-pub(crate) fn add_textures(
+pub fn add_textures(
     effect: &mut Effect,
     encoder: &mut Encoder,
     storage: &AssetStorage<Texture>,
@@ -154,7 +154,7 @@ pub(crate) fn add_textures(
     set_texture_offsets(effect, encoder, material, types);
 }
 
-pub(crate) fn setup_texture_offsets(builder: &mut EffectBuilder<'_>, types: &[TextureType]) {
+pub fn setup_texture_offsets(builder: &mut EffectBuilder<'_>, types: &[TextureType]) {
     use self::TextureType::*;
 
     #[cfg(feature = "profiler")]
@@ -201,7 +201,7 @@ pub(crate) fn setup_texture_offsets(builder: &mut EffectBuilder<'_>, types: &[Te
     }
 }
 
-pub(crate) fn set_texture_offsets(
+pub fn set_texture_offsets(
     effect: &mut Effect,
     encoder: &mut Encoder,
     material: &Material,
@@ -250,7 +250,7 @@ pub(crate) fn set_texture_offsets(
     }
 }
 
-pub(crate) fn setup_vertex_args(builder: &mut EffectBuilder<'_>) {
+pub fn setup_vertex_args(builder: &mut EffectBuilder<'_>) {
     #[cfg(feature = "profiler")]
     profile_scope!("render_setupvertexargs");
 
@@ -332,7 +332,7 @@ pub fn set_view_args(
     effect.update_constant_buffer("ViewArgs", &view_args.std140(), encoder);
 }
 
-pub(crate) fn draw_mesh(
+pub fn draw_mesh(
     encoder: &mut Encoder,
     effect: &mut Effect,
     skinning: bool,

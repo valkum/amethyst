@@ -43,6 +43,7 @@ pub(crate) enum ProgramSource<'a> {
     Simple(&'a [u8], &'a [u8]),
     Geometry(&'a [u8], &'a [u8], &'a [u8]),
     Tessellated(&'a [u8], &'a [u8], &'a [u8], &'a [u8]),
+    TessellatedGeometry(&'a [u8], &'a [u8], &'a [u8], &'a [u8], &'a [u8]),
 }
 
 impl<'a> ProgramSource<'a> {
@@ -64,6 +65,20 @@ impl<'a> ProgramSource<'a> {
             ProgramSource::Tessellated(ref vs, ref hs, ref ds, ref ps) => fac
                 .create_shader_set_tessellation(vs, hs, ds, ps)
                 .with_context(|_| error::Error::ProgramCreation),
+            ProgramSource::TessellatedGeometry(ref vs, ref hs, ref ds, ref gs,ref ps) => {
+                let v = fac.create_shader_vertex(vs).map_err(ProgramError::Vertex)?;
+                let h = fac
+                    .create_shader_hull(hs)
+                    .expect("Hull shader creation failed");
+                let d = fac
+                    .create_shader_domain(ds)
+                    .expect("Domain shader creation failed");
+                let g = fac
+                    .create_shader_geometry(gs)
+                    .expect("Geometry shader creation failed");
+                let p = fac.create_shader_pixel(ps).map_err(ProgramError::Pixel)?;
+                Ok(ShaderSet::TessellatedGeometry(v, h, d, g, p))
+            }
         }
     }
 }
@@ -176,6 +191,10 @@ impl<'f> NewEffect<'f> {
 
     pub fn tess<S: Into<&'f [u8]>>(self, vs: S, hs: S, ds: S, ps: S) -> EffectBuilder<'f> {
         let src = ProgramSource::Tessellated(vs.into(), hs.into(), ds.into(), ps.into());
+        EffectBuilder::new(self.factory, self.out, self.multisampling, src)
+    }
+    pub fn tess_geom<S: Into<&'f [u8]>>(self, vs: S, hs: S, ds: S, gs: S, ps: S) -> EffectBuilder<'f> {
+        let src = ProgramSource::TessellatedGeometry(vs.into(), hs.into(), ds.into(), gs.into(), ps.into());
         EffectBuilder::new(self.factory, self.out, self.multisampling, src)
     }
 }

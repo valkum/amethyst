@@ -1,3 +1,4 @@
+use gfx::memory::Pod;
 use std::mem;
 
 use glsl_layout::*;
@@ -15,29 +16,33 @@ use crate::{
     types::Encoder,
 };
 
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct FragmentArgs {
+pub struct FragmentArgs {
     point_light_count: uint,
     directional_light_count: uint,
     spot_light_count: uint,
 }
 
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct PointLightPod {
+pub struct PointLightPod {
     position: vec3,
     color: vec3,
     pad: float,
     intensity: float,
 }
 
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct DirectionalLightPod {
+pub struct DirectionalLightPod {
     color: vec3,
     direction: vec3,
 }
 
+#[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, Uniform)]
-pub(crate) struct SpotLightPod {
+pub struct SpotLightPod {
     position: vec3,
     color: vec3,
     direction: vec3,
@@ -47,7 +52,10 @@ pub(crate) struct SpotLightPod {
     smoothness: float,
 }
 
-pub(crate) fn set_light_args(
+pub(crate) struct Std140Pod<T: Std140>(T);
+unsafe impl<T: Std140> Pod for Std140Pod<T>{}
+
+pub fn set_light_args(
     effect: &mut Effect,
     encoder: &mut Encoder,
     light: &ReadStorage<'_, Light>,
@@ -61,13 +69,13 @@ pub(crate) fn set_light_args(
             if let Light::Point(ref light) = *light {
                 let position: [f32; 3] = transform.0.column(3).xyz().into();
                 Some(
-                    PointLightPod {
+                    Std140Pod(PointLightPod {
                         position: position.into(),
                         color: light.color.into(),
                         intensity: light.intensity,
                         pad: 0.0,
                     }
-                    .std140(),
+                    .std140()),
                 )
             } else {
                 None
@@ -80,11 +88,11 @@ pub(crate) fn set_light_args(
         .filter_map(|light| {
             if let Light::Directional(ref light) = *light {
                 Some(
-                    DirectionalLightPod {
+                    Std140Pod(DirectionalLightPod {
                         color: light.color.into(),
                         direction: light.direction.into(),
                     }
-                    .std140(),
+                    .std140()),
                 )
             } else {
                 None
@@ -98,7 +106,7 @@ pub(crate) fn set_light_args(
             if let Light::Spot(ref light) = *light {
                 let position: [f32; 3] = transform.0.column(3).xyz().into();
                 Some(
-                    SpotLightPod {
+                    Std140Pod(SpotLightPod {
                         position: position.into(),
                         color: light.color.into(),
                         direction: light.direction.into(),
@@ -107,7 +115,7 @@ pub(crate) fn set_light_args(
                         range: light.range,
                         smoothness: light.smoothness,
                     }
-                    .std140(),
+                    .std140()),
                 )
             } else {
                 None
@@ -137,7 +145,7 @@ pub(crate) fn set_light_args(
     );
 }
 
-pub(crate) fn setup_light_buffers(builder: &mut EffectBuilder<'_>) {
+pub fn setup_light_buffers(builder: &mut EffectBuilder<'_>) {
     builder
         .with_raw_constant_buffer(
             "FragmentArgs",

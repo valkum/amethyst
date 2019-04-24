@@ -76,6 +76,7 @@ where
 
         if let Some(dir) = Unit::try_new(Vector3::new(x, y, z), 1.0e-6) {
             for (transform, _) in (&mut transform, &tag).join() {
+                dbg!(&transform);
                 transform.append_translation_along(dir, time.delta_seconds() * self.speed);
             }
         }

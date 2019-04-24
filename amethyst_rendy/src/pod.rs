@@ -61,23 +61,23 @@ impl AsVertex for VertexArgs {
     const VERTEX: VertexFormat<'static> = VertexFormat {
         attributes: Cow::Borrowed(&[
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 0,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 16,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 32,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 48,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 64,
             },
         ]),
@@ -116,23 +116,23 @@ impl AsVertex for SkinnedVertexArgs {
     const VERTEX: VertexFormat<'static> = VertexFormat {
         attributes: Cow::Borrowed(&[
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 0,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 16,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 32,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 48,
             },
             Attribute {
-                format: Format::Rgba32Float,
+                format: Format::Rgba32Sfloat,
                 offset: 64,
             },
             Attribute {
@@ -241,27 +241,27 @@ impl AsVertex for SpriteArgs {
     const VERTEX: VertexFormat<'static> = VertexFormat {
         attributes: Cow::Borrowed(&[
             Attribute {
-                format: Format::Rg32Float,
+                format: Format::Rg32Sfloat,
                 offset: 0,
             },
             Attribute {
-                format: Format::Rg32Float,
+                format: Format::Rg32Sfloat,
                 offset: 8,
             },
             Attribute {
-                format: Format::Rg32Float,
+                format: Format::Rg32Sfloat,
                 offset: 16,
             },
             Attribute {
-                format: Format::Rg32Float,
+                format: Format::Rg32Sfloat,
                 offset: 24,
             },
             Attribute {
-                format: Format::Rg32Float,
+                format: Format::Rg32Sfloat,
                 offset: 32,
             },
             Attribute {
-                format: Format::R32Float,
+                format: Format::R32Sfloat,
                 offset: 40,
             },
         ]),

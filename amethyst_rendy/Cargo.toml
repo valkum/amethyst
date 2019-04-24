@@ -27,8 +27,8 @@ hibitset = "0.5.4"
 lazy_static = "1.0"
 log = "0.4"
 palette = { version = "0.4", features = ["serde"] }
-# rendy = { git = "https://github.com/omni-viral/rendy.git", version = "0.1", features = ["full", "empty", "serde-1"] }
-rendy = { path = "../../rendy/rendy/", features = ["full", "empty", "serde-1"] }
+rendy = { git = "https://github.com/valkum/rendy.git", rev ="7e1f3a7ab986a7e12ac5766d30a118d36f44df3f", features = ["full", "empty", "serde-1"] }
+# rendy = { path = "../../rendy/rendy/", features = ["full", "empty", "serde-1"] }
 ron = "0.4"
 serde = { version = "1", features = ["serde_derive"] }
 shred = { version = "0.7"  }

@@ -211,7 +211,7 @@ pub fn push_vertex_desc<'a>(
     (elements, stride, rate): (
         impl IntoIterator<Item = pso::Element<format::Format>>,
         pso::ElemStride,
-        pso::InstanceRate,
+        pso::VertexInputRate,
     ),
     vertex_buffers: &mut Vec<pso::VertexBufferDesc>,
     attributes: &mut Vec<pso::AttributeDesc>,

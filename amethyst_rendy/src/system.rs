@@ -126,7 +126,7 @@ where
                 b.build(
                     ImageState {
                         queue: queue_id,
-                        stage: rendy::hal::pso::PipelineStage::FRAGMENT_SHADER,
+                        stage: rendy::hal::pso::PipelineStage::VERTEX_SHADER,
                         access: rendy::hal::image::Access::SHADER_READ,
                         layout: rendy::hal::image::Layout::ShaderReadOnlyOptimal,
                     },

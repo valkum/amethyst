@@ -5,7 +5,7 @@ use amethyst_core::{
     shrev::EventChannel,
 };
 use std::{path::Path, sync::Arc, mem};
-use winit::{Event, EventsLoop, Window, WindowEvent};
+use winit::{Event, EventsLoop, Window, WindowEvent, DeviceEvent};
 
 
 /// System for opening and managing the window.

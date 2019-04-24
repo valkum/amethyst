@@ -32,7 +32,7 @@ use rendy::{
         pso::{
             BlendState, ColorBlendDesc, ColorMask, DepthStencilDesc, Descriptor,
             DescriptorSetLayoutBinding, DescriptorSetWrite, DescriptorType, ElemStride, Element,
-            EntryPoint, GraphicsShaderSet, InstanceRate, ShaderStageFlags, Specialization,
+            EntryPoint, GraphicsShaderSet, ShaderStageFlags, Specialization, VertexInputRate
         },
         Backend,
     },
@@ -118,8 +118,8 @@ impl<B: Backend> SimpleGraphicsPipelineDesc<B, Resources> for DrawFlat2DDesc {
         }
     }
 
-    fn vertices(&self) -> Vec<(Vec<Element<Format>>, ElemStride, InstanceRate)> {
-        vec![SpriteArgs::VERTEX.gfx_vertex_input_desc(1)]
+    fn vertices(&self) -> Vec<(Vec<Element<Format>>, ElemStride, VertexInputRate)> {
+        vec![SpriteArgs::VERTEX.gfx_vertex_input_desc(VertexInputRate::Instance(1))]
     }
 
     fn layout(&self) -> Layout {

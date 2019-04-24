@@ -1,6 +1,6 @@
 mod flat2d;
 mod pbr;
-mod util;
+pub mod util;
 
 pub use self::{flat2d::*, pbr::*};
 

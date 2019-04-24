@@ -142,12 +142,12 @@ impl<B: Backend> RenderGroupDesc<B, Resources> for DrawPbrDesc {
         let mut vbos = Vec::new();
         let mut attributes = Vec::new();
         util::push_vertex_desc(
-            PosNormTangTex::VERTEX.gfx_vertex_input_desc(0),
+            PosNormTangTex::VERTEX.gfx_vertex_input_desc(pso::VertexInputRate::Vertex),
             &mut vbos,
             &mut attributes,
         );
         util::push_vertex_desc(
-            pod::VertexArgs::VERTEX.gfx_vertex_input_desc(1),
+            pod::VertexArgs::VERTEX.gfx_vertex_input_desc(pso::VertexInputRate::Instance(1)),
             &mut vbos,
             &mut attributes,
         );
@@ -231,12 +231,12 @@ impl<B: Backend> RenderGroupDesc<B, Resources> for DrawPbrDesc {
             let mut vbos_skinned = Vec::new();
             let mut attributes_skinned = Vec::new();
             util::push_vertex_desc(
-                PosNormTangTexJoint::VERTEX.gfx_vertex_input_desc(0),
+                PosNormTangTexJoint::VERTEX.gfx_vertex_input_desc(pso::VertexInputRate::Vertex),
                 &mut vbos_skinned,
                 &mut attributes_skinned,
             );
             util::push_vertex_desc(
-                pod::SkinnedVertexArgs::VERTEX.gfx_vertex_input_desc(1),
+                pod::SkinnedVertexArgs::VERTEX.gfx_vertex_input_desc(pso::VertexInputRate::Instance(1)),
                 &mut vbos_skinned,
                 &mut attributes_skinned,
             );

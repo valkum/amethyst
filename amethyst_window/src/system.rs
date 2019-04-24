@@ -4,8 +4,9 @@ use amethyst_core::{
     ecs::{Resources, RunNow, System, SystemData, Write, WriteExpect},
     shrev::EventChannel,
 };
-use std::{path::Path, sync::Arc};
-use winit::{Event, EventsLoop, Window};
+use std::{path::Path, sync::Arc, mem};
+use winit::{Event, EventsLoop, Window, WindowEvent};
+
 
 /// System for opening and managing the window.
 pub struct WindowSystem {
@@ -38,6 +39,16 @@ impl WindowSystem {
         // Send resource size changes to the window
         if screen_dimensions.dirty {
             self.window.set_inner_size((width, height).into());
+            if screen_dimensions.fullscreen {
+                self.window.set_fullscreen(Some(self.window.get_primary_monitor()));
+            } else {
+                self.window.set_fullscreen(None);
+                if screen_dimensions.maximized {
+                    self.window.set_maximized(true);
+                } else {
+                    self.window.set_maximized(false);
+                }
+            }
             screen_dimensions.dirty = false;
         }
 
@@ -100,8 +111,9 @@ impl<'a> RunNow<'a> for EventsLoopSystem {
         let mut event_handler = <Write<'a, EventChannel<Event>>>::fetch(res);
 
         let events = &mut self.events;
+        
         self.events_loop.poll_events(|event| {
-            events.push(event);
+            compress_events(events, event);
         });
         event_handler.drain_vec_write(events);
     }
@@ -109,4 +121,127 @@ impl<'a> RunNow<'a> for EventsLoopSystem {
     fn setup(&mut self, res: &mut Resources) {
         <Write<'a, EventChannel<Event>>>::setup(res);
     }
+}
+
+
+/// Input devices can sometimes generate a lot of motion events per frame, these are
+/// useless as the extra precision is wasted and these events tend to overflow our
+/// otherwise very adequate event buffers.  So this function removes and compresses redundant
+/// events.
+fn compress_events(vec: &mut Vec<Event>, new_event: Event) {
+    match new_event {
+        Event::WindowEvent { ref event, .. } => match event {
+            WindowEvent::CursorMoved { .. } => {
+                let mut iter = vec.iter_mut();
+                while let Some(stored_event) = iter.next_back() {
+                    match stored_event {
+                        Event::WindowEvent {
+                            event: WindowEvent::CursorMoved { .. },
+                            ..
+                        } => {
+                            mem::replace(stored_event, new_event.clone());
+                            return;
+                        }
+
+                        Event::WindowEvent {
+                            event: WindowEvent::AxisMotion { .. },
+                            ..
+                        } => {}
+
+                        Event::DeviceEvent {
+                            event: DeviceEvent::Motion { .. },
+                            ..
+                        } => {}
+
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            WindowEvent::AxisMotion {
+                device_id,
+                axis,
+                value,
+            } => {
+                let mut iter = vec.iter_mut();
+                while let Some(stored_event) = iter.next_back() {
+                    match stored_event {
+                        Event::WindowEvent {
+                            event:
+                                WindowEvent::AxisMotion {
+                                    axis: stored_axis,
+                                    device_id: stored_device,
+                                    value: ref mut stored_value,
+                                },
+                            ..
+                        } => {
+                            if device_id == stored_device && axis == stored_axis {
+                                *stored_value += value;
+                                return;
+                            }
+                        }
+
+                        Event::WindowEvent {
+                            event: WindowEvent::CursorMoved { .. },
+                            ..
+                        } => {}
+
+                        Event::DeviceEvent {
+                            event: DeviceEvent::Motion { .. },
+                            ..
+                        } => {}
+
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            _ => {}
+        },
+
+        Event::DeviceEvent {
+            device_id,
+            event: DeviceEvent::Motion { axis, value },
+        } => {
+            let mut iter = vec.iter_mut();
+            while let Some(stored_event) = iter.next_back() {
+                match stored_event {
+                    Event::DeviceEvent {
+                        device_id: stored_device,
+                        event:
+                            DeviceEvent::Motion {
+                                axis: stored_axis,
+                                value: ref mut stored_value,
+                            },
+                    } => {
+                        if device_id == *stored_device && axis == *stored_axis {
+                            *stored_value += value;
+                            return;
+                        }
+                    }
+
+                    Event::WindowEvent {
+                        event: WindowEvent::CursorMoved { .. },
+                        ..
+                    } => {}
+
+                    Event::WindowEvent {
+                        event: WindowEvent::AxisMotion { .. },
+                        ..
+                    } => {}
+
+                    _ => {
+                        break;
+                    }
+                }
+            }
+        }
+
+        _ => {}
+    }
+    vec.push(new_event);
 }

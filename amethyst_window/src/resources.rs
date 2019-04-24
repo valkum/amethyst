@@ -11,6 +11,8 @@ pub struct ScreenDimensions {
     /// This is typically one for a normal display and two for a retina display.
     hidpi: f64,
     pub(crate) dirty: bool,
+    pub(crate) fullscreen: bool,
+    pub(crate) maximized: bool,
 }
 
 impl ScreenDimensions {
@@ -22,6 +24,8 @@ impl ScreenDimensions {
             aspect_ratio: w as f32 / h as f32,
             hidpi,
             dirty: false,
+            fullscreen: false,
+            maximized: false
         }
     }
 
@@ -56,6 +60,16 @@ impl ScreenDimensions {
         self.w = w;
         self.h = h;
         self.aspect_ratio = w as f32 / h as f32;
+        self.dirty = true;
+    }
+
+    pub fn toggle_fullscreen(&mut self) {
+        self.fullscreen = !self.fullscreen;
+        self.dirty = true;
+    }
+
+    pub fn toggle_maximized(&mut self) {
+        self.maximized = !self.maximized;
         self.dirty = true;
     }
 

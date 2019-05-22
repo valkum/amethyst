@@ -818,8 +818,8 @@ mod tests {
 
 
         // Furthest point = distance to (0,0) - zFar
-        let _far = Point3::new(0.0, 0.0, -97.0);
-        let projected_point = mvp * near.to_homogeneous();
+        let far = Point3::new(0.0, 0.0, -97.0);
+        let projected_point = mvp * far.to_homogeneous();
         assert_abs_diff_eq!(projected_point[2]/projected_point[3], 1.0);
     }
 
@@ -837,8 +837,8 @@ mod tests {
         assert_abs_diff_eq!(projected_point[2]/projected_point[3], 0.0);
 
         // Furthest point = distance to (0,0) - zFar
-        let _far = Point3::new(0.0, 0.0, -97.0);
-        let projected_point = mvp * near.to_homogeneous();
+        let far = Point3::new(0.0, 0.0, -97.0);
+        let projected_point = mvp * far.to_homogeneous();
         assert_abs_diff_eq!(projected_point[2]/projected_point[3], 1.0);
     }
 

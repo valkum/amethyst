@@ -29,7 +29,7 @@ sdl2 = { version = "0.32.2", optional = true }
 thread_profiler = { version = "0.3", optional = true }
 
 [dependencies.smallvec]
-version = "0.6"
+version = "1.0"
 features = ["serde"]
 
 [dev-dependencies]

@@ -33,7 +33,7 @@ thread_profiler = { version = "0.3", optional = true }
 amethyst_utils = { path = "../amethyst_utils", version = "0.8.0"}
 
 [dependencies.smallvec]
-version = "0.6"
+version = "1.0"
 features = ["serde"]
 
 [features]

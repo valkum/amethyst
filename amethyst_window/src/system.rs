@@ -5,7 +5,7 @@ use amethyst_core::{
     shrev::EventChannel,
 };
 use std::path::Path;
-use winit::{event::Event, event_loop::EventLoop, window::Window};
+use winit::{event::Event, event_loop::{ControlFlow, EventLoop}, window::Window};
 use winit::platform::desktop::EventLoopExtDesktop;
 
 /// System for opening and managing the window.
@@ -112,9 +112,13 @@ impl<'a> RunNow<'a> for EventsLoopSystem {
         let mut event_handler = <Write<'a, EventChannel<Event<()>>>>::fetch(world);
 
         let events = &mut self.events;
-        self.event_loop.run_return(|event, _, _| {
+        self.event_loop.run_return(|event, _, control_flow| {
+            if Event::EventsCleared == event {
+                *control_flow = ControlFlow::Exit;
+            }
             events.push(event);
         });
+        
         event_handler.drain_vec_write(events);
     }
 

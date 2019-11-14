@@ -48,6 +48,7 @@ use amethyst::{
         fps_counter::FpsCounterBundle,
         tag::TagFinder,
     },
+    winit::event::VirtualKeyCode,
 };
 use std::path::Path;
 
@@ -340,15 +341,15 @@ impl SimpleState for Example {
         profile_scope!("example handle_event");
         let StateData { world, .. } = data;
         if let StateEvent::Window(event) = &event {
-            if is_key_down(&event, winit::VirtualKeyCode::LShift) {
+            if is_key_down(&event, VirtualKeyCode::LShift) {
                 self.bullet_time = true;
-            } else if is_key_up(&event, winit::VirtualKeyCode::LShift) {
+            } else if is_key_up(&event, VirtualKeyCode::LShift) {
                 self.bullet_time = false;
             }
 
-            if is_close_requested(&event) || is_key_down(&event, winit::VirtualKeyCode::Escape) {
+            if is_close_requested(&event) || is_key_down(&event, VirtualKeyCode::Escape) {
                 Trans::Quit
-            } else if is_key_down(&event, winit::VirtualKeyCode::Space) {
+            } else if is_key_down(&event, VirtualKeyCode::Space) {
                 toggle_or_cycle_animation(
                     self.entity,
                     &mut world.write_resource(),
@@ -356,7 +357,7 @@ impl SimpleState for Example {
                     &mut world.write_storage(),
                 );
                 Trans::None
-            } else if is_key_down(&event, winit::VirtualKeyCode::E) {
+            } else if is_key_down(&event, VirtualKeyCode::E) {
                 let mut mode = world.write_resource::<RenderMode>();
                 *mode = match *mode {
                     RenderMode::Flat => RenderMode::Shaded,
@@ -550,6 +551,7 @@ fn toggle_or_cycle_animation(
 fn init_modules() {
     {
         use amethyst::assets::{Format, Prefab};
+        #[cfg(feature = "audio")]
         let _w = amethyst::audio::output::outputs();
         let _p = Prefab::<()>::new();
         let _name = ImageFormat::default().name();
@@ -588,22 +590,22 @@ fn main() -> amethyst::Result<()> {
     bindings.insert_axis(
         "vertical",
         Axis::Emulated {
-            pos: Button::Key(winit::VirtualKeyCode::S),
-            neg: Button::Key(winit::VirtualKeyCode::W),
+            pos: Button::Key(VirtualKeyCode::S),
+            neg: Button::Key(VirtualKeyCode::W),
         },
     )?;
     bindings.insert_axis(
         "horizontal",
         Axis::Emulated {
-            pos: Button::Key(winit::VirtualKeyCode::D),
-            neg: Button::Key(winit::VirtualKeyCode::A),
+            pos: Button::Key(VirtualKeyCode::D),
+            neg: Button::Key(VirtualKeyCode::A),
         },
     )?;
     bindings.insert_axis(
         "horizontal",
         Axis::Emulated {
-            pos: Button::Key(winit::VirtualKeyCode::D),
-            neg: Button::Key(winit::VirtualKeyCode::A),
+            pos: Button::Key(VirtualKeyCode::D),
+            neg: Button::Key(VirtualKeyCode::A),
         },
     )?;
 

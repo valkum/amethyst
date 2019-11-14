@@ -98,7 +98,7 @@ pub struct EventsLoopSystem {
 }
 
 impl EventsLoopSystem {
-    /// Creates a new `EventsLoopSystem` using the provided `EventsLoop`
+    /// Creates a new `EventsLoopSystem` using the provided `EventLoop`
     pub fn new(event_loop: EventLoop<()>) -> Self {
         Self {
             event_loop,

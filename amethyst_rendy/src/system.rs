@@ -8,7 +8,7 @@ use crate::{
     skinning::JointTransforms,
     sprite::SpriteRender,
     transparent::Transparent,
-    types::{SelectedBackend, Backend, Mesh, Texture},
+    types::{Backend, Mesh, Texture},
     visibility::Visibility,
 };
 use amethyst_assets::{AssetStorage, Handle, HotReloadStrategy, ProcessingState, ThreadPool};
@@ -149,9 +149,8 @@ where
 
     fn setup(&mut self, world: &mut World) {
         let config: rendy::factory::Config = Default::default();
-        let backend = EnabledBackend::which::<B>();
-        let rendy = AnyRendy::init(backend, &config).expect("Failed to initialize graphics backend.");
-        let (factory, families): (Factory<B>, Families<B>) = with_any_rendy!((rendy) (factory, families) => {(factory, families)});
+        let rendy = rendy::init::Rendy::init(&config).expect("Failed to initialize graphics backend.");
+        let (factory, families): (Factory<B>, Families<B>) = (rendy.factory, rendy.families);
 
         let queue_id = QueueId {
             family: families.family_by_index(0).id(),

@@ -19,6 +19,7 @@ use amethyst::{
         sprite::{prefab::SpriteScenePrefab, SpriteRender},
         types::DefaultBackend,
         RenderingBundle,
+        rendy
     },
     utils::application_root_dir,
     window::ScreenDimensions,
@@ -153,7 +154,7 @@ fn main() -> amethyst::Result<()> {
             RenderingBundle::<DefaultBackend>::new()
                 .with_plugin(
                     RenderToWindow::from_config_path(display_config_path)?
-                        .with_clear([0.34, 0.36, 0.52, 1.0]),
+                        .with_clear(rendy::hal::command::ClearColor{float32: [0.34, 0.36, 0.52, 1.0]}),
                 )
                 .with_plugin(RenderFlat2D::default()),
         )?;

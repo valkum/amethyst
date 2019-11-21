@@ -1,6 +1,6 @@
 //! The core engine framework.
 
-use std::{env, marker::PhantomData, path::Path, sync::Arc, time::Duration};
+use std::{env, marker::PhantomData, path::Path, sync::Arc, sync::Mutex, time::Duration};
 
 use crate::shred::Resource;
 use derivative::Derivative;
@@ -9,6 +9,7 @@ use rayon::ThreadPoolBuilder;
 #[cfg(feature = "sentry")]
 use sentry::integrations::panic::register_panic_handler;
 use winit::event::Event;
+use winit::event_loop::EventLoop;
 
 #[cfg(feature = "profiler")]
 use thread_profiler::{profile_scope, register_thread_with_profiler, write_profile};
@@ -257,6 +258,58 @@ where
         }
 
         self.shutdown();
+    }
+
+
+    pub fn run_rendered(&'static mut self, event_loop: EventLoop<()>)
+    where
+        for<'b> R: EventReader<'b, Event = E>,
+    {
+        #[cfg(feature = "sentry")]
+        let _sentry_guard = if let Some(dsn) = option_env!("SENTRY_DSN") {
+            let guard = sentry::init(dsn);
+            register_panic_handler();
+            Some(guard)
+        } else {
+            None
+        };
+
+        self.initialize();
+        self.world.write_resource::<Stopwatch>().start();
+        event_loop.run(move |event, _, control_flow| {
+            use winit::event_loop::ControlFlow;
+            if !self.states.is_running() {
+                {
+                    let mut stopwatch = self.world.write_resource::<Stopwatch>();
+                    stopwatch.stop();
+                }
+                info!("Engine is shutting down");
+                self.data.dispose(&mut self.world);
+                
+                *control_flow = ControlFlow::Exit;
+                return;
+            }
+            if Event::EventsCleared == event {
+                self.advance_frame();
+                {
+                    #[cfg(feature = "profiler")]
+                    profile_scope!("frame_limiter wait");
+                    self.world.write_resource::<FrameLimiter>().wait();
+                }
+                {
+                    let elapsed = self.world.read_resource::<Stopwatch>().elapsed();
+                    let mut time = self.world.write_resource::<Time>();
+                    time.increment_frame_number();
+                    time.set_delta_time(elapsed);
+                }
+                let mut stopwatch = self.world.write_resource::<Stopwatch>();
+                stopwatch.stop();
+                stopwatch.restart();
+                *control_flow = ControlFlow::Poll;
+            }
+        })
+
+        
     }
 
     /// Sets up the application.

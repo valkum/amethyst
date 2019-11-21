@@ -5,7 +5,7 @@ use amethyst_core::{
     shrev::EventChannel,
 };
 use std::path::Path;
-use winit::{event::Event, event_loop::{ControlFlow, EventLoop}, window::Window};
+use winit::{event::Event, event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget}, window::Window};
 use winit::platform::desktop::EventLoopExtDesktop;
 
 /// System for opening and managing the window.
@@ -17,21 +17,21 @@ impl WindowSystem {
     /// sources. Returns a new `WindowSystem`
     pub fn from_config_path(
         world: &mut World,
-        events_loop: &EventLoop<()>,
+        event_loop: &EventLoopWindowTarget<()>,
         path: impl AsRef<Path>,
     ) -> Result<Self, ConfigError> {
         Ok(Self::from_config(
             world,
-            events_loop,
+            event_loop,
             DisplayConfig::load(path.as_ref())?,
         ))
     }
 
     /// Builds and spawns a new `Window`, using the provided `DisplayConfig` and `EventsLoop` as
     /// sources. Returns a new `WindowSystem`
-    pub fn from_config(world: &mut World, event_loop: &EventLoop<()>, config: DisplayConfig) -> Self {
+    pub fn from_config(world: &mut World, event_loop: &EventLoopWindowTarget<()>, config: DisplayConfig) -> Self {
         let window = config
-            .into_window_builder(event_loop)
+            .into_window_builder()
             .build(event_loop)
             .unwrap();
         Self::new(world, window)

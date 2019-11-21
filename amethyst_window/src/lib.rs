@@ -25,4 +25,4 @@ pub use crate::{
     resources::ScreenDimensions,
     system::{EventsLoopSystem, WindowSystem},
 };
-pub use winit::window::{Icon, Window};
+pub use winit::{event_loop::{EventLoop, EventLoopProxy, EventLoopWindowTarget}, window::{Icon, Window}};

@@ -608,6 +608,8 @@ fn main() -> amethyst::Result<()> {
             neg: Button::Key(VirtualKeyCode::A),
         },
     )?;
+    use amethyst_window::EventLoop;
+    let event_loop = EventLoop::new();
 
     let game_data = GameDataBuilder::default()
         .with(OrbitSystem, "orbit", &[])
@@ -659,7 +661,7 @@ fn main() -> amethyst::Result<()> {
         ]))?
         .with_bundle(
             RenderingBundle::<DefaultBackend>::new()
-                .with_plugin(RenderToWindow::from_config_path(display_config_path)?)
+                .with_plugin(RenderToWindow::from_config_path(display_config_path, &event_loop))?)
                 .with_plugin(RenderSwitchable3D::default())
                 .with_plugin(RenderFlat2D::default())
                 .with_plugin(RenderDebugLines::default())
@@ -670,7 +672,7 @@ fn main() -> amethyst::Result<()> {
         )?;
 
     let mut game = Application::new(assets_dir, Example::new(), game_data)?;
-    game.run();
+    game.run_rendered(event_loop);
     Ok(())
 }
 

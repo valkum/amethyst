@@ -27,7 +27,7 @@ mod window {
         ecs::{ReadExpect, SystemData},
         SystemBundle,
     };
-    use amethyst_window::{DisplayConfig, ScreenDimensions, Window, WindowBundle};
+    use amethyst_window::{DisplayConfig, ScreenDimensions, Window, WindowBundle, EventLoop, EventLoopProxy};
     use rendy::hal::command::{ClearColor, ClearDepthStencil, ClearValue};
     use std::path::Path;
 
@@ -35,24 +35,26 @@ mod window {
     ///
     /// When you provide [`DisplayConfig`], it opens a window for you using [`WindowBundle`].
     #[derive(Default, Debug)]
-    pub struct RenderToWindow {
+    pub struct RenderToWindow<'a> {
         target: Target,
         config: Option<DisplayConfig>,
+        event_loop: Option<&'a EventLoop<()>>,
         dimensions: Option<ScreenDimensions>,
         dirty: bool,
         clear: Option<ClearColor>,
     }
 
-    impl RenderToWindow {
+    impl<'a> RenderToWindow<'a> {
         /// Create RenderToWindow plugin with [`WindowBundle`] using specified config path.
-        pub fn from_config_path(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
-            Ok(Self::from_config(DisplayConfig::load(path)?))
+        pub fn from_config_path(path: impl AsRef<Path>, event_loop: &'a EventLoop<()>) -> Result<Self, ConfigError> {
+            Ok(Self::from_config(DisplayConfig::load(path)?, event_loop))
         }
 
         /// Create RenderToWindow plugin with [`WindowBundle`] using specified config.
-        pub fn from_config(display_config: DisplayConfig) -> Self {
+        pub fn from_config(display_config: DisplayConfig, event_loop: &'a EventLoop<()>) -> Self {
             Self {
                 config: Some(display_config),
+                event_loop: Some(event_loop),
                 ..Default::default()
             }
         }
@@ -70,14 +72,14 @@ mod window {
         }
     }
 
-    impl<B: Backend> RenderPlugin<B> for RenderToWindow {
+    impl<'c, B: Backend> RenderPlugin<B> for RenderToWindow<'c> {
         fn on_build<'a, 'b>(
             &mut self,
             world: &mut World,
             builder: &mut DispatcherBuilder<'a, 'b>,
         ) -> Result<(), Error> {
-            if let Some(config) = self.config.take() {
-                WindowBundle::from_config(config).build(world, builder)?;
+            if let (Some(config), Some(event_loop)) = (self.config.take(), self.event_loop.take()) {
+                WindowBundle::from_config(config, &event_loop).build(world, builder)?;
             }
 
             Ok(())

@@ -32,10 +32,8 @@ impl<'a, 'b> SystemBundle<'a, 'b> for WindowBundle {
         builder: &mut DispatcherBuilder<'a, 'b>,
     ) -> Result<(), Error> {
         
-        builder.add(
-            WindowSystem::new(),
-            "window",
-            &[],
+        builder.add_thread_local(
+            WindowSystem::new()
         );
         // world.insert(TrustCell::new(event_loop));
         // builder.add_thread_local(EventsLoopSystem::new(event_loop));

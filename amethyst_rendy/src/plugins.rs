@@ -27,7 +27,7 @@ mod window {
         ecs::{ReadExpect, SystemData},
         SystemBundle,
     };
-    use amethyst_window::{DisplayConfig, ScreenDimensions, Window, WindowBundle, EventLoop, EventLoopProxy};
+    use amethyst_window::{DisplayConfig, ScreenDimensions, Window, WindowBundle, EventLoop};
     use rendy::hal::command::{ClearColor, ClearDepthStencil, ClearValue};
     use std::path::Path;
 
@@ -35,28 +35,16 @@ mod window {
     ///
     /// When you provide [`DisplayConfig`], it opens a window for you using [`WindowBundle`].
     #[derive(Default, Debug)]
-    pub struct RenderToWindow<'a> {
+    pub struct RenderToWindow {
         target: Target,
-        config: Option<DisplayConfig>,
-        event_loop: Option<&'a EventLoop<()>>,
         dimensions: Option<ScreenDimensions>,
         dirty: bool,
         clear: Option<ClearColor>,
     }
 
-    impl<'a> RenderToWindow<'a> {
-        /// Create RenderToWindow plugin with [`WindowBundle`] using specified config path.
-        pub fn from_config_path(path: impl AsRef<Path>, event_loop: &'a EventLoop<()>) -> Result<Self, ConfigError> {
-            Ok(Self::from_config(DisplayConfig::load(path)?, event_loop))
-        }
-
-        /// Create RenderToWindow plugin with [`WindowBundle`] using specified config.
-        pub fn from_config(display_config: DisplayConfig, event_loop: &'a EventLoop<()>) -> Self {
-            Self {
-                config: Some(display_config),
-                event_loop: Some(event_loop),
-                ..Default::default()
-            }
+    impl RenderToWindow {
+        pub fn new() -> Self {
+            Self { ..Default::default() }
         }
 
         /// Select render target which will be presented to window.
@@ -72,16 +60,13 @@ mod window {
         }
     }
 
-    impl<'c, B: Backend> RenderPlugin<B> for RenderToWindow<'c> {
+    impl< B: Backend> RenderPlugin<B> for RenderToWindow {
         fn on_build<'a, 'b>(
             &mut self,
             world: &mut World,
             builder: &mut DispatcherBuilder<'a, 'b>,
         ) -> Result<(), Error> {
-            if let (Some(config), Some(event_loop)) = (self.config.take(), self.event_loop.take()) {
-                WindowBundle::from_config(config, &event_loop).build(world, builder)?;
-            }
-
+            WindowBundle::new().build(world, builder)?;
             Ok(())
         }
 
@@ -104,7 +89,7 @@ mod window {
             world: &World,
         ) -> Result<(), Error> {
             self.dirty = false;
-
+            
             let window = <ReadExpect<'_, Window>>::fetch(world);
             let surface = factory.create_surface(&*window)?;
             let dimensions = self.dimensions.as_ref().unwrap();

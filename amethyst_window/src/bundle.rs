@@ -1,4 +1,4 @@
-use crate::{DisplayConfig, EventsLoopSystem, WindowSystem, EventLoop, EventLoopProxy};
+use crate::{DisplayConfig, WindowSystem, EventLoop};
 use amethyst_config::{Config, ConfigError};
 use amethyst_core::{bundle::SystemBundle, ecs::World, shred::DispatcherBuilder};
 use amethyst_error::Error;
@@ -16,43 +16,16 @@ pub const SCREEN_HEIGHT: u32 = 600;
 /// Bundle providing easy initializing of the appopriate `Window`, `WindowSystem` `EventLoop` and
 /// `EventLoopSystem` constructs used for creating the rendering window of amethyst with `winit`
 #[derive(Debug)]
-pub struct WindowBundle<'a> {
-    config: DisplayConfig,
-    event_loop: &'a EventLoop<()>,
+pub struct WindowBundle {
 }
 
-impl<'a> WindowBundle<'a> {
-    /// Builds a new window bundle from a loaded `DisplayConfig`.
-    pub fn from_config(config: DisplayConfig, event_loop: &'a EventLoop<()>) -> Self {
-        WindowBundle { config, event_loop }
-    }
-
-    /// Builds a new window bundle by loading the `DisplayConfig` from `path`.
-    ///
-    /// Will fall back to `DisplayConfig::default()` in case of an error.
-    pub fn from_config_path(path: impl AsRef<std::path::Path>, event_loop: &'a EventLoop<()>) -> Result<Self, ConfigError> {
-        Ok(WindowBundle::from_config(DisplayConfig::load(
-            path.as_ref(),
-        )?, event_loop))
-    }
-
-    /// Builds a new window bundle with a predefined `DisplayConfig`.
-    ///
-    /// This uses a `DisplayConfig::default()`, but with the following differences:
-    ///
-    /// * `dimensions` is changed to `Some((SCREEN_WIDTH, SCREEN_HEIGHT))`.
-    /// * `visibility` is `false`.
-    #[cfg(feature = "test-support")]
-    pub fn from_test_config() -> Self {
-        let mut display_config = DisplayConfig::default();
-        display_config.dimensions = Some((SCREEN_WIDTH, SCREEN_HEIGHT));
-        display_config.visibility = false;
-
-        WindowBundle::from_config(display_config)
+impl WindowBundle {
+    pub fn new() -> Self {
+        Self { }
     }
 }
 
-impl<'a, 'b> SystemBundle<'a, 'b> for WindowBundle<'a> {
+impl<'a, 'b> SystemBundle<'a, 'b> for WindowBundle {
     fn build(
         self,
         world: &mut World,
@@ -60,7 +33,7 @@ impl<'a, 'b> SystemBundle<'a, 'b> for WindowBundle<'a> {
     ) -> Result<(), Error> {
         
         builder.add(
-            WindowSystem::from_config(world, self.event_loop, self.config),
+            WindowSystem::new(),
             "window",
             &[],
         );

@@ -261,59 +261,8 @@ where
     }
 
 
-    pub fn run_rendered(&'static mut self, event_loop: EventLoop<()>)
-    where
-        for<'b> R: EventReader<'b, Event = E>,
-    {
-        #[cfg(feature = "sentry")]
-        let _sentry_guard = if let Some(dsn) = option_env!("SENTRY_DSN") {
-            let guard = sentry::init(dsn);
-            register_panic_handler();
-            Some(guard)
-        } else {
-            None
-        };
-
-        self.initialize();
-        self.world.write_resource::<Stopwatch>().start();
-        event_loop.run(move |event, _, control_flow| {
-            use winit::event_loop::ControlFlow;
-            if !self.states.is_running() {
-                {
-                    let mut stopwatch = self.world.write_resource::<Stopwatch>();
-                    stopwatch.stop();
-                }
-                info!("Engine is shutting down");
-                self.data.dispose(&mut self.world);
-                
-                *control_flow = ControlFlow::Exit;
-                return;
-            }
-            if Event::EventsCleared == event {
-                self.advance_frame();
-                {
-                    #[cfg(feature = "profiler")]
-                    profile_scope!("frame_limiter wait");
-                    self.world.write_resource::<FrameLimiter>().wait();
-                }
-                {
-                    let elapsed = self.world.read_resource::<Stopwatch>().elapsed();
-                    let mut time = self.world.write_resource::<Time>();
-                    time.increment_frame_number();
-                    time.set_delta_time(elapsed);
-                }
-                let mut stopwatch = self.world.write_resource::<Stopwatch>();
-                stopwatch.stop();
-                stopwatch.restart();
-                *control_flow = ControlFlow::Poll;
-            }
-        })
-
-        
-    }
-
     /// Sets up the application.
-    fn initialize(&mut self) {
+    pub fn initialize(&mut self) {
         #[cfg(feature = "profiler")]
         profile_scope!("initialize");
         self.states
@@ -455,6 +404,63 @@ where
         let app_root = application_root_dir().expect("application root dir to exist");
         let path = app_root.join("thread_profile.json");
         write_profile(path.to_str().expect("application root dir to be a string"));
+    }
+}
+
+use winit::event_loop::ControlFlow;
+pub trait CoreApplicationWinitExt<'a, T, E, R> where
+    T: DataDispose + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    
+    fn run_winit_loop(&mut self, event: Event<()>, control_flow: &mut ControlFlow ) -> ()
+        where
+            for<'b> R: EventReader<'b, Event = E>;
+}
+
+impl<'a, T, E, R> CoreApplicationWinitExt<'a, T, E, R> for CoreApplication<'a, T, E, R> where
+    T: DataDispose + 'static,
+    E: Clone + Send + Sync + 'static,
+{
+    fn run_winit_loop(&mut self, event: Event<()>, control_flow: &mut ControlFlow ) -> ()
+    where
+        for<'b> R: EventReader<'b, Event = E>,
+    {
+        self.world.write_resource::<Stopwatch>().start();
+        
+        if Event::EventsCleared == event {
+            if !self.states.is_running() {
+                {
+                    let mut stopwatch = self.world.write_resource::<Stopwatch>();
+                    stopwatch.stop();
+                }
+                info!("Engine is shutting down");
+                self.data.dispose(&mut self.world);
+                
+                *control_flow = ControlFlow::Exit;
+                return;
+            }
+            self.advance_frame();
+            {
+                #[cfg(feature = "profiler")]
+                profile_scope!("frame_limiter wait");
+                self.world.write_resource::<FrameLimiter>().wait();
+            }
+            {
+                let elapsed = self.world.read_resource::<Stopwatch>().elapsed();
+                let mut time = self.world.write_resource::<Time>();
+                time.increment_frame_number();
+                time.set_delta_time(elapsed);
+            }
+            let mut stopwatch = self.world.write_resource::<Stopwatch>();
+            stopwatch.stop();
+            stopwatch.restart();
+            *control_flow = ControlFlow::Poll;
+        }
+        {
+            let mut event_handler = self.world.write_resource::<EventChannel<Event<()>>>();
+            event_handler.single_write(event);
+        }
     }
 }
 

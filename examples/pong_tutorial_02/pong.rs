@@ -1,10 +1,11 @@
 use amethyst::{
     assets::{AssetStorage, Handle, Loader},
-    core::{
-        transform::{LocalToWorld, Translation},
-    },
+    core::transform::{LocalToWorld, Translation},
     prelude::*,
-    renderer::{Camera, ImageFormat, SpriteRender, SpriteSheet, SpriteSheetFormat, Texture},
+    renderer::{
+        camera::Projection, Camera, ImageFormat, SpriteRender, SpriteSheet, SpriteSheetFormat,
+        Texture,
+    },
 };
 
 const ARENA_HEIGHT: f32 = 100.0;
@@ -61,7 +62,6 @@ fn load_sprite_sheet(resources: &mut Resources) -> Handle<SpriteSheet> {
             .get::<Loader>()
             .expect("Could not get Loader resource");
 
-
         let texture_storage = resources.get::<AssetStorage<Texture>>().unwrap();
         loader.load(
             "texture/pong_spritesheet.png",
@@ -85,25 +85,38 @@ fn load_sprite_sheet(resources: &mut Resources) -> Handle<SpriteSheet> {
 /// Initialise the camera.
 fn initialise_camera(world: &mut World) {
     // Setup camera in a way that our screen covers whole arena and (0, 0) is in the bottom left.
-    let translation = Translation::new(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 1.0);
-    
-    world.insert(
-        (),
-        vec![(
-            LocalToWorld::identity(),
-            Camera::standard_2d(ARENA_WIDTH, ARENA_HEIGHT),
-            translation,
-        )],
-    );
+    let camera = Camera::from(Projection::orthographic(
+        0.0,
+        ARENA_WIDTH,
+        -ARENA_HEIGHT, // Dunno why this works.  See commented section below.
+        0.0, // Ditto.
+        0.0,
+        20.0,
+    ));
+
+    // WHY DOESN'T THE CODE BELOW WORK?
+    // - Using 0.0 for bottom and ARENA_HEIGHT for top seems like it ought to be the thing to do.
+    // - And -z is the far direction, so -20.0 for the far plane seems right as well.
+    // - But doing either or both of the above results in no sprite rendering that I can see.
+    //
+    // let camera = Camera::from(Projection::orthographic(
+    //     0.0,
+    //     ARENA_WIDTH,
+    //     0.0,
+    //     ARENA_HEIGHT,
+    //     0.0,
+    //     -20.0,
+    // ));
+
+    world.insert((), vec![(LocalToWorld::identity(), camera)]);
 }
 
 /// Initialises one paddle on the left, and one paddle on the right.
 fn initialise_paddles(world: &mut World, sprite_sheet_handle: Handle<SpriteSheet>) {
-
     // Correctly position the paddles.
     let y = ARENA_HEIGHT / 2.0;
-    let left_translation = Translation::new(PADDLE_WIDTH * 0.5, y, 0.0);
-    let right_translation = Translation::new(ARENA_WIDTH - PADDLE_WIDTH * 0.5, y, 0.0);
+    let left_translation = Translation::new(PADDLE_WIDTH * 0.5, y, -1.0);
+    let right_translation = Translation::new(ARENA_WIDTH - PADDLE_WIDTH * 0.5, y, -1.0);
 
     // Assign the sprites for the paddles
     let sprite_render = SpriteRender {

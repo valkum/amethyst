@@ -6,7 +6,7 @@ use crate::{
 };
 use amethyst_core::{
     ecs::prelude::*,
-    math::{convert, Matrix4, Vector3},
+    math::{self as na, convert, Matrix4, Vector3},
     transform::LocalToWorld,
 };
 use glsl_layout::*;
@@ -83,12 +83,30 @@ impl CameraGatherer {
 
         let camera_position = convert::<_, Vector3<f32>>(transform.column(3).xyz()).into_pod();
 
+        fn global_view_matrix(mut res: Matrix4<f32>) -> Matrix4<f32> {
+            // Perform an in-place inversion of the 3x3 matrix
+            {
+                let mut slice3x3 = res.fixed_slice_mut::<na::U3, na::U3>(0, 0);
+                assert!(slice3x3.try_inverse_mut());
+            }
+
+            let mut translation = -res.column(3).xyz();
+            translation = res.fixed_slice::<na::U3, na::U3>(0, 0) * translation;
+
+            let mut res_trans = res.column_mut(3);
+            res_trans.x = translation.x;
+            res_trans.y = translation.y;
+            res_trans.z = translation.z;
+
+            res
+        }
+
         let proj = camera.as_matrix();
-        let view = &**transform;
+        let view = global_view_matrix(transform.0);
 
         let proj_view: [[f32; 4]; 4] = ((*proj) * view).into();
         let proj: [[f32; 4]; 4] = (*proj).into();
-        let view: [[f32; 4]; 4] = (*view).into();
+        let view: [[f32; 4]; 4] = view.into();
 
         let projview = pod::ViewArgs {
             proj: proj.into(),
